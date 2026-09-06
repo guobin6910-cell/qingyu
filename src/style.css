@@ -349,3 +349,286 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   background: rgba(6,16,24,0.35);
   border-radius: 10px;
 }
+
+/* —— 交鋒特寫（仙劍式布局致敬） —— */
+.cutin-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.16s ease;
+  pointer-events: auto;
+}
+.cutin-overlay.in { opacity: 1; }
+.cutin-overlay.out { opacity: 0; }
+.cutin-dim {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(2px) saturate(0.85);
+  transform: scale(1.04);
+}
+.cutin-dim::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 10, 18, 0.55);
+}
+.cutin-frame {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px calc(12px + var(--safe-bottom));
+  box-sizing: border-box;
+}
+.cutin-banner {
+  align-self: center;
+  background: linear-gradient(90deg, transparent, #c9a227, #f0d878, #c9a227, transparent);
+  color: #1a1208;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  padding: 6px 28px;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  box-shadow: 0 0 0 1px #8a6a18, 0 4px 12px #0008;
+}
+.cutin-overlay.ultimate .cutin-banner {
+  background: linear-gradient(90deg, transparent, #c0392b, #f1c40f, #c0392b, transparent);
+  color: #1a0808;
+  animation: ultiBanner 0.6s ease-in-out infinite alternate;
+}
+@keyframes ultiBanner {
+  from { filter: brightness(1); }
+  to { filter: brightness(1.25); }
+}
+.cutin-cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(72px, 0.9fr) minmax(0, 1.4fr) minmax(72px, 0.9fr);
+  gap: 6px;
+  align-items: stretch;
+}
+.cutin-panel {
+  background: linear-gradient(180deg, #1a2f44ee, #0d1a28f2);
+  border: 2px solid #c9a227aa;
+  border-radius: 10px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-shadow: inset 0 0 0 1px #f0d87844, 0 6px 16px #0007;
+}
+.cutin-panel.left { border-color: #4a8fd4cc; }
+.cutin-panel.right { border-color: #e05050cc; }
+.cutin-portrait {
+  width: 100%;
+  aspect-ratio: 3/4;
+  max-height: 160px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e0c06088;
+  background: #0a1520;
+}
+.cutin-face {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cutin-face.fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cutin-id { text-align: center; width: 100%; }
+.cutin-name {
+  font-weight: 800;
+  font-size: 0.95rem;
+  background: #1e4a7a;
+  color: #fff;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.cutin-panel.right .cutin-name { background: #7a1e1e; }
+.cutin-class {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--gold);
+  background: #2a1f0a;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.cutin-stats {
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+.cutin-hpwrap { width: 100%; }
+.cutin-hp-label {
+  font-size: 0.7rem;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.cutin-hpbar {
+  height: 10px;
+  background: #1a1010;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid #000;
+}
+.cutin-hpbar i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #2d8f5a, #4ec99a);
+  transition: width 0.35s ease-out;
+}
+.cutin-hpbar i.low {
+  background: linear-gradient(90deg, #8a2020, #e05050);
+}
+
+.cutin-stage {
+  position: relative;
+  background:
+    linear-gradient(180deg, #1a334d88, #0b1a2acc),
+    radial-gradient(ellipse at 50% 80%, #3db8a033, transparent 60%);
+  border: 2px solid #c9a22799;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  overflow: hidden;
+  min-height: 180px;
+  box-shadow: inset 0 0 24px #0008;
+}
+.cutin-fighter {
+  width: 42%;
+  max-width: 120px;
+  aspect-ratio: 3/4;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 2px solid #e0c06088;
+  background: #0a1520;
+  transition: transform 0.18s ease-out;
+  box-shadow: 0 8px 18px #0009;
+}
+.cutin-fighter img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.cutin-fighter.atk { transform: translateX(-8px); }
+.cutin-fighter.def { transform: translateX(8px); }
+.cutin-fighter.atk.lunge { transform: translateX(14px) scale(1.06); }
+.cutin-fighter.def.lunge { transform: translateX(-10px) scale(0.96); }
+.cutin-fighter.ulti {
+  box-shadow: 0 0 16px #f1c40f88, 0 8px 18px #0009;
+  border-color: #f1c40f;
+}
+.cutin-vs {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 900;
+  font-size: 0.85rem;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-shadow: 0 2px 4px #000;
+  z-index: 2;
+}
+.cutin-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+.cutin-flash.boom {
+  animation: hitFlash 0.35s ease-out;
+}
+.cutin-overlay.ulti-flash .cutin-flash.boom {
+  animation: hitFlashUlti 0.45s ease-out;
+}
+@keyframes hitFlash {
+  0% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+@keyframes hitFlashUlti {
+  0% { opacity: 1; background: #ffe9a0; }
+  40% { opacity: 0.7; background: #ff6b4a; }
+  100% { opacity: 0; }
+}
+.cutin-pop {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  font-size: 1.8rem;
+  font-weight: 900;
+  text-shadow: 0 2px 0 #000, 0 0 12px #000;
+  animation: cutinPop 0.55s ease-out forwards;
+  z-index: 3;
+  pointer-events: none;
+}
+.cutin-pop.dmg { color: #ff6b6b; }
+.cutin-pop.heal { color: #4ec99a; }
+@keyframes cutinPop {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.6); }
+  30% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0.9; transform: translate(-50%, -70%) scale(1); }
+}
+.cutin-hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.75rem;
+  margin-top: 8px;
+}
+.cutin-overlay.heal .cutin-banner {
+  background: linear-gradient(90deg, transparent, #2a8f7a, #4ec99a, #2a8f7a, transparent);
+  color: #062018;
+}
+
+@media (max-width: 380px) {
+  .cutin-cols {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr auto;
+  }
+  .cutin-panel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+  }
+  .cutin-portrait {
+    width: 56px;
+    height: 70px;
+    max-height: none;
+    aspect-ratio: auto;
+    flex-shrink: 0;
+  }
+  .cutin-id { text-align: left; flex: 1; }
+  .cutin-stats { display: none; }
+  .cutin-hpwrap { width: 100%; }
+  .cutin-stage { min-height: 150px; order: 0; }
+  .cutin-panel.left { order: -1; }
+  .cutin-panel.right { order: 1; }
+  .cutin-cols {
+    display: flex;
+    flex-direction: column;
+  }
+}

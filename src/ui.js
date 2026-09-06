@@ -9,9 +9,9 @@ import {
   recruitHaiNing, applyBattleRewards, SAVE_KEY,
 } from './state.js';
 import {
-  createBattle, selectUnit, tryMove, tryAttack, trySkill, waitUnit,
-  endPlayerPhase, runEnemyPhase, terrainAt, unitAt, syncBattleToState,
-  autoPlayBattle,
+  createBattle, selectUnit, tryMove, trySkill, waitUnit,
+  endPlayerPhase, terrainAt, unitAt, syncBattleToState,
+  planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
 } from './battle.js';
 import { ART, mapBackground, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
 
@@ -400,8 +400,12 @@ function onCellClick(x, y) {
   }
 
   if (b.mode === 'act' || b.mode === 'skill') {
-    if (tryAttack(b, x, y)) {
-      afterPlayerAction();
+    const plan = planTryAttack(b, x, y);
+    if (plan) {
+      showBattleCutIn(plan, () => {
+        commitAttackPlan(b, plan);
+        afterPlayerAction();
+      });
       return;
     }
     if (u && u.side === 'player' && !u.acted) {
@@ -500,13 +504,39 @@ function afterPlayerAction() {
   }
 }
 
-function doEnemyThenRender() {
+async function doEnemyThenRender() {
   toast('敵方行動中…');
-  setTimeout(() => {
-    runEnemyPhase(battle);
+  const b = battle;
+  if (!b || b.phase !== 'enemy' || b.result) return;
+  // 稍微等待讓 toast 出現
+  await sleep(220);
+  const enemies = b.units.filter((u) => u.side === 'enemy' && u.alive);
+  for (const e of enemies) {
+    if (!e.alive || b.result || battle !== b) break;
+    const plan = enemyPrepare(b, e);
     renderBattle();
-    if (battle.result) showBattleResult();
-  }, 280);
+    if (plan) {
+      await new Promise((resolve) => {
+        showBattleCutIn(plan, () => {
+          commitAttackPlan(b, plan);
+          e.acted = true;
+          resolve();
+        });
+      });
+      renderBattle();
+      if (b.result) {
+        showBattleResult();
+        return;
+      }
+    }
+  }
+  finalizeEnemyPhase(b);
+  renderBattle();
+  if (b.result) showBattleResult();
+}
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
 }
 
 function showBattleResult() {
@@ -544,6 +574,136 @@ function showBattleResult() {
   </div>`;
   app.appendChild(sheet);
   sheet.querySelector('#btn-back').onclick = () => showHub();
+}
+
+
+function hpPct(hp, maxHp) {
+  return Math.max(0, Math.min(100, Math.round((hp / Math.max(1, maxHp)) * 100)));
+}
+
+function cutinSideHTML(snap, side) {
+  const cls = CLASSES[snap.classId];
+  const por = portraitFor(snap);
+  const token = unitTokenHTML({ ...snap, alive: true }, 52);
+  const face = por
+    ? `<img class="cutin-face" src="${por}" alt="${snap.name}" />`
+    : `<div class="cutin-face fallback">${token}</div>`;
+  return `<div class="cutin-panel ${side}">
+    <div class="cutin-portrait">${face}</div>
+    <div class="cutin-id">
+      <div class="cutin-name">${snap.name}</div>
+      <div class="cutin-class">${cls?.name || ''}</div>
+    </div>
+    <div class="cutin-stats">攻 ${snap.atk}　防 ${snap.def}</div>
+    <div class="cutin-hpwrap">
+      <div class="cutin-hp-label">HP <span data-hp-num>${snap.hp}</span>/${snap.maxHp}</div>
+      <div class="cutin-hpbar"><i data-hp-bar style="width:${hpPct(snap.hp, snap.maxHp)}%"></i></div>
+    </div>
+  </div>`;
+}
+
+/** 仙劍式交鋒特寫（致敬布局，原創美術） */
+function showBattleCutIn(plan, onDone) {
+  const existing = app.querySelector('.cutin-overlay');
+  if (existing) existing.remove();
+
+  const bg = battle ? mapBackground(battle.mapDef.id) : ART.cover;
+  const ultimate = !!plan.ultimate;
+  const isHeal = plan.kind === 'heal';
+  const title = ultimate ? `【${plan.skillName || '必殺'}】` : (isHeal ? '治療' : '交鋒');
+  const atkPor = portraitFor(plan.attacker);
+  const defPor = portraitFor(plan.defender);
+
+  const overlay = document.createElement('div');
+  overlay.className = `cutin-overlay${ultimate ? ' ultimate' : ''}${isHeal ? ' heal' : ''}`;
+  overlay.innerHTML = `
+    <div class="cutin-dim" style="background-image:linear-gradient(180deg,#0b1a2acc,#0b1a2af2),url('${bg}')"></div>
+    <div class="cutin-frame">
+      <div class="cutin-banner">${title}</div>
+      <div class="cutin-cols">
+        ${cutinSideHTML(plan.attacker, 'left')}
+        <div class="cutin-stage">
+          <div class="cutin-fighter atk ${ultimate ? 'ulti' : ''}">
+            ${atkPor ? `<img src="${atkPor}" alt="" />` : unitTokenHTML({ ...plan.attacker, alive: true }, 72)}
+          </div>
+          <div class="cutin-vs">${isHeal ? '＋' : 'VS'}</div>
+          <div class="cutin-fighter def">
+            ${defPor ? `<img src="${defPor}" alt="" />` : unitTokenHTML({ ...plan.defender, alive: true }, 72)}
+          </div>
+          <div class="cutin-flash"></div>
+          <div class="cutin-pop" hidden></div>
+        </div>
+        ${cutinSideHTML(plan.defender, 'right')}
+      </div>
+      <div class="cutin-hint">點擊略過</div>
+    </div>`;
+  app.appendChild(overlay);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    clearTimeout(tHit);
+    clearTimeout(tEnd);
+    overlay.classList.add('out');
+    setTimeout(() => {
+      overlay.remove();
+      onDone && onDone();
+    }, 160);
+  };
+
+  const pop = overlay.querySelector('.cutin-pop');
+  const flash = overlay.querySelector('.cutin-flash');
+  const fighterAtk = overlay.querySelector('.cutin-fighter.atk');
+  const fighterDef = overlay.querySelector('.cutin-fighter.def');
+  const bars = overlay.querySelectorAll('[data-hp-bar]');
+  const nums = overlay.querySelectorAll('[data-hp-num]');
+
+  // 開場微頓 → 衝刺 → 閃光與扣血
+  requestAnimationFrame(() => overlay.classList.add('in'));
+
+  const tHit = setTimeout(() => {
+    fighterAtk.classList.add('lunge');
+    fighterDef.classList.add('lunge');
+    flash.classList.add('boom');
+    if (ultimate) overlay.classList.add('ulti-flash');
+
+    if (isHeal) {
+      pop.hidden = false;
+      pop.textContent = `+${plan.healAmount}`;
+      pop.className = 'cutin-pop heal';
+      const newHp = Math.min(plan.defender.maxHp, plan.defender.hp + plan.healAmount);
+      if (bars[1]) bars[1].style.width = hpPct(newHp, plan.defender.maxHp) + '%';
+      if (nums[1]) nums[1].textContent = String(newHp);
+    } else {
+      pop.hidden = false;
+      pop.textContent = `-${plan.dmg}`;
+      pop.className = 'cutin-pop dmg';
+      const defHp = Math.max(0, plan.defender.hp - plan.dmg);
+      if (bars[1]) {
+        bars[1].style.width = hpPct(defHp, plan.defender.maxHp) + '%';
+        if (defHp / plan.defender.maxHp < 0.35) bars[1].classList.add('low');
+      }
+      if (nums[1]) nums[1].textContent = String(defHp);
+
+      if (plan.counterDmg > 0) {
+        setTimeout(() => {
+          const atkHp = Math.max(0, plan.attacker.hp - plan.counterDmg);
+          if (bars[0]) {
+            bars[0].style.width = hpPct(atkHp, plan.attacker.maxHp) + '%';
+            if (atkHp / plan.attacker.maxHp < 0.35) bars[0].classList.add('low');
+          }
+          if (nums[0]) nums[0].textContent = String(atkHp);
+          pop.textContent = `反擊 -${plan.counterDmg}`;
+        }, 280);
+      }
+    }
+  }, ultimate ? 280 : 220);
+
+  const duration = ultimate ? 1200 : 1000;
+  const tEnd = setTimeout(finish, duration);
+
+  overlay.addEventListener('click', finish);
 }
 
 // 供 playtest 匯出

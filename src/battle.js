@@ -231,75 +231,179 @@ export function tryMove(battle, x, y) {
   return true;
 }
 
-export function tryAttack(battle, tx, ty) {
-  const unit = battle.units.find((u) => u.id === battle.selected);
-  if (!unit || (battle.mode !== 'act' && battle.mode !== 'skill')) return false;
-  const hint = battle.attackHint.find((c) => c.x === tx && c.y === ty);
-  if (!hint) return false;
-  const target = unitAt(battle, tx, ty);
-  if (!target) return false;
+function snapUnit(u) {
+  return {
+    id: u.id,
+    name: u.name,
+    classId: u.classId,
+    side: u.side,
+    tree: u.tree,
+    hp: u.hp,
+    maxHp: u.maxHp,
+    atk: u.atk,
+    def: u.def,
+    mag: u.mag,
+    res: u.res,
+    hero: !!u.hero,
+    boss: !!u.boss,
+    srcUid: u.srcUid || null,
+    x: u.x,
+    y: u.y,
+  };
+}
 
-  if (unit.heal && target.side === 'player') {
-    const h = calcHeal(unit, target);
-    target.hp = Math.min(target.maxHp, target.hp + h);
-    pushFloat(battle, tx, ty, `+${h}`, 'heal');
-    battle.log.push(`${unit.name} 治療 ${target.name} +${h}`);
-  } else if (target.side === 'enemy') {
-    let dmg = calcDamage(battle, unit, target);
-    if (battle.mode === 'skill' && unit.skill) {
-      const sk = unit.skill;
-      if (sk.type === 'attack') {
-        dmg = Math.round(dmg * (sk.power || 1.5));
-        if (sk.id === 'bi_sha_break') {
-          // 無視半數防：再加一點
-          dmg = Math.round(dmg * 1.1);
-        }
-        if (sk.aoe) {
-          // 簡易：主目標 + 相鄰敵人各 70%
-          const extras = battle.units.filter(
-            (u) => u.alive && u.side === 'enemy' && u.id !== target.id && manhattan(u.x, u.y, tx, ty) === 1
-          ).slice(0, 2);
-          for (const ex of extras) {
-            const ed = Math.max(1, Math.round(dmg * 0.7));
-            ex.hp -= ed;
-            pushFloat(battle, ex.x, ex.y, `-${ed}`, 'dmg');
-            if (ex.hp <= 0) {
-              ex.alive = false;
-              ex.hp = 0;
-              battle.log.push(`${ex.name} 被擊破`);
-            }
-          }
-        }
-        unit.skill.used = true;
-        battle.log.push(`${unit.name} 發動【${sk.name}】！`);
+/** 預覽攻擊／治療結果（不改戰鬥狀態） */
+export function planTryAttack(battle, tx, ty) {
+  const unit = battle.units.find((u) => u.id === battle.selected);
+  if (!unit || (battle.mode !== 'act' && battle.mode !== 'skill')) return null;
+  const hint = battle.attackHint.find((c) => c.x === tx && c.y === ty);
+  if (!hint) return null;
+  const target = unitAt(battle, tx, ty);
+  if (!target) return null;
+  return buildCombatPlan(battle, unit, target, {
+    skillMode: battle.mode === 'skill',
+    finishAct: true,
+  });
+}
+
+export function buildCombatPlan(battle, attacker, target, opts = {}) {
+  const skillMode = !!opts.skillMode;
+  const finish = opts.finishAct !== false;
+
+  if (attacker.heal && target.side === attacker.side) {
+    const h = calcHeal(attacker, target);
+    return {
+      kind: 'heal',
+      attackerId: attacker.id,
+      targetId: target.id,
+      attacker: snapUnit(attacker),
+      defender: snapUnit(target),
+      healAmount: h,
+      dmg: 0,
+      counterDmg: 0,
+      skillName: null,
+      ultimate: false,
+      aoe: [],
+      finishAct: finish,
+      markSkillUsed: false,
+    };
+  }
+
+  if (target.side === attacker.side) return null;
+
+  let dmg = calcDamage(battle, attacker, target);
+  let skillName = null;
+  let ultimate = false;
+  let markSkillUsed = false;
+  const aoe = [];
+
+  if (skillMode && attacker.skill && attacker.skill.type === 'attack') {
+    const sk = attacker.skill;
+    dmg = Math.round(dmg * (sk.power || 1.5));
+    if (sk.id === 'bi_sha_break') dmg = Math.round(dmg * 1.1);
+    skillName = sk.name;
+    ultimate = true;
+    markSkillUsed = true;
+    if (sk.aoe) {
+      const extras = battle.units.filter(
+        (u) => u.alive && u.side === target.side && u.id !== target.id
+          && manhattan(u.x, u.y, target.x, target.y) === 1
+      ).slice(0, 2);
+      for (const ex of extras) {
+        aoe.push({
+          id: ex.id,
+          name: ex.name,
+          x: ex.x,
+          y: ex.y,
+          dmg: Math.max(1, Math.round(dmg * 0.7)),
+          hpBefore: ex.hp,
+          maxHp: ex.maxHp,
+        });
       }
     }
-    target.hp -= dmg;
-    pushFloat(battle, tx, ty, `-${dmg}`, 'dmg');
-    battle.log.push(`${unit.name} 攻擊 ${target.name} 造成 ${dmg}`);
+  }
+
+  let counterDmg = 0;
+  const canCounter = target.range === 1 && attacker.range === 1
+    && manhattan(attacker.x, attacker.y, target.x, target.y) <= target.range;
+  // 反擊僅在主目標 theoretically 存活時（依計劃傷害判斷）
+  if (canCounter && target.hp - dmg > 0) {
+    counterDmg = calcDamage(battle, target, attacker);
+  }
+
+  return {
+    kind: 'attack',
+    attackerId: attacker.id,
+    targetId: target.id,
+    attacker: snapUnit(attacker),
+    defender: snapUnit(target),
+    healAmount: 0,
+    dmg,
+    counterDmg,
+    skillName,
+    ultimate,
+    aoe,
+    finishAct: finish,
+    markSkillUsed,
+  };
+}
+
+/** 套用交鋒計劃 */
+export function commitAttackPlan(battle, plan) {
+  if (!plan) return false;
+  const unit = battle.units.find((u) => u.id === plan.attackerId);
+  const target = battle.units.find((u) => u.id === plan.targetId);
+  if (!unit || !target) return false;
+
+  if (plan.kind === 'heal') {
+    const h = plan.healAmount;
+    target.hp = Math.min(target.maxHp, target.hp + h);
+    pushFloat(battle, target.x, target.y, `+${h}`, 'heal');
+    battle.log.push(`${unit.name} 治療 ${target.name} +${h}`);
+  } else {
+    if (plan.markSkillUsed && unit.skill) {
+      unit.skill.used = true;
+      if (plan.skillName) battle.log.push(`${unit.name} 發動【${plan.skillName}】！`);
+    }
+    for (const ex of plan.aoe || []) {
+      const eu = battle.units.find((u) => u.id === ex.id);
+      if (!eu || !eu.alive) continue;
+      eu.hp -= ex.dmg;
+      pushFloat(battle, eu.x, eu.y, `-${ex.dmg}`, 'dmg');
+      if (eu.hp <= 0) {
+        eu.alive = false;
+        eu.hp = 0;
+        battle.log.push(`${eu.name} 被擊破`);
+      }
+    }
+    target.hp -= plan.dmg;
+    pushFloat(battle, target.x, target.y, `-${plan.dmg}`, 'dmg');
+    battle.log.push(`${unit.name} 攻擊 ${target.name} 造成 ${plan.dmg}`);
     if (target.hp <= 0) {
       target.alive = false;
       target.hp = 0;
       battle.log.push(`${target.name} 被擊破`);
     }
-    // 反擊（近戰且存活、距離1）
-    if (target.alive && target.range >= 1 && manhattan(unit.x, unit.y, target.x, target.y) <= target.range && target.range === 1 && unit.range === 1) {
-      const cd = calcDamage(battle, target, unit);
-      unit.hp -= cd;
-      pushFloat(battle, unit.x, unit.y, `-${cd}`, 'dmg');
-      battle.log.push(`${target.name} 反擊 ${cd}`);
+    if (plan.counterDmg > 0 && target.alive) {
+      unit.hp -= plan.counterDmg;
+      pushFloat(battle, unit.x, unit.y, `-${plan.counterDmg}`, 'dmg');
+      battle.log.push(`${target.name} 反擊 ${plan.counterDmg}`);
       if (unit.hp <= 0) {
         unit.alive = false;
         unit.hp = 0;
       }
     }
-  } else {
-    return false;
   }
 
-  finishAct(battle, unit);
+  if (plan.finishAct) finishAct(battle, unit);
   checkResult(battle);
   return true;
+}
+
+export function tryAttack(battle, tx, ty) {
+  const plan = planTryAttack(battle, tx, ty);
+  if (!plan) return false;
+  return commitAttackPlan(battle, plan);
 }
 
 export function trySkill(battle) {
@@ -382,39 +486,22 @@ export function runEnemyPhase(battle) {
     enemyAct(battle, e);
     checkResult(battle);
   }
-  // 新回合
-  if (!battle.result) {
-    for (const u of battle.units) {
-      u.moved = false;
-      u.acted = false;
-    }
-    battle.turn += 1;
-    battle.phase = 'player';
-    battle.log.push(`—— 第 ${battle.turn} 回合 ——`);
-  }
+  finalizeEnemyPhase(battle);
 }
 
-function enemyAct(battle, e) {
+/** 敵單位移動並決定攻擊；回傳交鋒計劃（尚未扣血）。 */
+export function enemyPrepare(battle, e) {
   const players = battle.units.filter((u) => u.side === 'player' && u.alive);
-  if (!players.length) return;
-
-  // 找可攻擊目標：先移動再打
-  const moveCells = computeMoveRange(battle, e);
-  let best = null;
-
-  for (const cell of moveCells) {
-    const atkCells = computeAttackRange(battle, e, cell.x, cell.y);
-    for (const ac of atkCells) {
-      const t = unitAt(battle, ac.x, ac.y);
-      // 移動後原位的 unitAt 會誤判自己——暫時搬移模擬
-    }
+  if (!players.length) {
+    e.acted = true;
+    return null;
   }
 
-  // 模擬移動
+  const moveCells = computeMoveRange(battle, e);
+  let best = null;
   const ox = e.x;
   const oy = e.y;
   for (const cell of moveCells) {
-    // 暫離
     e.x = -99;
     e.y = -99;
     const blocked = unitAt(battle, cell.x, cell.y);
@@ -438,16 +525,14 @@ function enemyAct(battle, e) {
   if (best) {
     e.x = best.x;
     e.y = best.y;
-    best.target.hp -= best.dmg;
-    pushFloat(battle, best.target.x, best.target.y, `-${best.dmg}`, 'dmg');
-    battle.log.push(`${e.name} 攻擊 ${best.target.name} ${best.dmg}`);
-    if (best.target.hp <= 0) {
-      best.target.alive = false;
-      best.target.hp = 0;
-      battle.log.push(`${best.target.name} 倒下了`);
-    }
-  } else if (e.ai === 'aggro') {
-    // 靠近最近玩家
+    const plan = buildCombatPlan(battle, e, best.target, {
+      skillMode: false,
+      finishAct: false,
+    });
+    return plan;
+  }
+
+  if (e.ai === 'aggro') {
     let nearest = players[0];
     let nd = manhattan(ox, oy, nearest.x, nearest.y);
     for (const p of players) {
@@ -468,11 +553,32 @@ function enemyAct(battle, e) {
     e.x = bestCell.x;
     e.y = bestCell.y;
   } else {
-    // hold：留在防禦地形附近，略移動
     e.x = ox;
     e.y = oy;
   }
   e.acted = true;
+  return null;
+}
+
+function enemyAct(battle, e) {
+  const plan = enemyPrepare(battle, e);
+  if (plan) {
+    commitAttackPlan(battle, plan);
+    e.acted = true;
+  }
+}
+
+/** 結束敵方階段、開啟新回合（runEnemyPhase 尾段） */
+export function finalizeEnemyPhase(battle) {
+  if (!battle.result) {
+    for (const u of battle.units) {
+      u.moved = false;
+      u.acted = false;
+    }
+    battle.turn += 1;
+    battle.phase = 'player';
+    battle.log.push(`—— 第 ${battle.turn} 回合 ——`);
+  }
 }
 
 function checkResult(battle) {
