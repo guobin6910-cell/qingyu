@@ -14,7 +14,7 @@ import {
   planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
   computeAttackRange,
 } from './battle.js';
-import { ART, mapBackground, portraitFor, unitTokenHTML, terrainPattern, tileUrl } from './art.js';
+import { ART, mapBackground, boardFor, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
 
 let app, state, screen, battle, hubTab = 'mission', toastTimer;
 
@@ -292,7 +292,9 @@ function renderBattle() {
   screen = 'battle';
   if (!battle) return;
   const b = battle;
-  const cellSize = b.w >= 8 ? 42 : 48;
+  const cellSize = b.w >= 8 ? 44 : 50;
+  const boardW = b.w * cellSize;
+  const boardH = b.h * cellSize;
 
   // 敵方威脅格（選中我軍時顯示）
   const dangerSet = new Set();
@@ -313,6 +315,7 @@ function renderBattle() {
       const isAtk = b.attackHint.some((c) => c.x === x && c.y === y);
       const sel = u && u.id === b.selected;
       const isDanger = dangerSet.has(`${x},${y}`) && !isMove && !isAtk;
+      const badge = (!u && ter && !ter.block && terrainPattern(ter.id)) ? terrainPattern(ter.id) : '';
       const cls = [
         'cell',
         `tile-${ter.id}`,
@@ -322,13 +325,11 @@ function renderBattle() {
         sel ? 'selected' : '',
         ter.block ? 'blocked' : '',
       ].join(' ');
-      const tex = tileUrl(ter.id);
-      const tokSize = Math.max(34, cellSize - 2);
+      const tokSize = Math.max(36, cellSize - 4);
       gridHtml += `<div class="${cls}" data-x="${x}" data-y="${y}"
-        style="--tile:url('${tex}');background-color:${ter.color};width:${cellSize}px;height:${cellSize}px"
+        style="width:${cellSize}px;height:${cellSize}px"
         title="${ter.name}">
-        <span class="tile-sculpt"></span>
-        <span class="tile-label">${u ? '' : terrainPattern(ter.id)}</span>
+        ${badge ? `<span class="tile-badge">${badge}</span>` : ''}
         ${u ? `<div class="tok" data-uid="${u.id}">${unitTokenHTML(u, tokSize)}</div>` : ''}
         ${isMove && !u ? '<span class="move-foot"></span>' : ''}
       </div>`;
@@ -347,6 +348,7 @@ function renderBattle() {
     : '';
 
   const bgUrl = mapBackground(b.mapDef.id);
+  const boardUrl = boardFor(b.mapDef.id);
   const selPor = selU ? portraitFor(selU) : null;
   const selCls = selU ? CLASSES[selU.classId] : null;
   const selPanel = selU ? `
@@ -387,7 +389,7 @@ function renderBattle() {
   }).join('');
 
   app.innerHTML = `
-  <div class="screen battle-screen gorgeous">
+  <div class="screen battle-screen gorgeous eoa-board">
     <div class="battle-bg" style="background-image:url('${bgUrl}')"></div>
     <div class="battle-bg-vignette"></div>
     <div class="battle-top ornate-bar">
@@ -398,13 +400,17 @@ function renderBattle() {
     </div>
     <div class="battle-mid">
       <div class="grid-wrap" style="position:relative">
-        <div class="grid ornate-grid" style="grid-template-columns:repeat(${b.w}, ${cellSize}px)">
-          ${gridHtml}
+        <div class="board-stage" style="width:${boardW}px;height:${boardH}px;--board:url('${boardUrl}')">
+          <div class="board-art" aria-hidden="true"></div>
+          <div class="grid continuous-grid" style="grid-template-columns:repeat(${b.w}, ${cellSize}px);width:${boardW}px;height:${boardH}px">
+            ${gridHtml}
+          </div>
         </div>
       </div>
       <div class="party-rail">${partyHtml}</div>
     </div>
     <div class="battle-bar ornate-bar">
+      <div class="map-loc">—— ${b.mapDef.name} ——</div>
       ${selPanel}
       ${skillTip}
       <div class="cmd-menu">

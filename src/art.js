@@ -1,4 +1,4 @@
-/** 美術資源與單位標記 */
+/** 美術資源與單位標記 — 連續地圖＋Q版全身立繪（致敬經典台製 SRPG 呈現，原創資產） */
 import { TREES, CLASSES } from './data.js';
 
 import coverUrl from './assets/art/cover.jpg';
@@ -6,6 +6,9 @@ import hubUrl from './assets/art/hub.jpg';
 import bgM1 from './assets/art/bg-m1.jpg';
 import bgM2 from './assets/art/bg-m2.jpg';
 import bgM3 from './assets/art/bg-m3.jpg';
+import boardM1 from './assets/art/board-m1.jpg';
+import boardM2 from './assets/art/board-m2.jpg';
+import boardM3 from './assets/art/board-m3.jpg';
 
 import unitLin from './assets/art/unit-lin.jpg';
 import unitSu from './assets/art/unit-su.jpg';
@@ -15,22 +18,13 @@ import enemyBandit from './assets/art/enemy-bandit.jpg';
 import enemyPirate from './assets/art/enemy-pirate.jpg';
 import enemyDeserter from './assets/art/enemy-deserter.jpg';
 
-import tokenLin from './assets/art/token-lin.png';
-import tokenSu from './assets/art/token-su.png';
-import tokenFang from './assets/art/token-fang.png';
-import tokenHai from './assets/art/token-hai.png';
-import tokenBandit from './assets/art/token-bandit.png';
-import tokenPirate from './assets/art/token-pirate.png';
-import tokenDeserter from './assets/art/token-deserter.png';
-import tilePlain from './assets/art/tiles/plain.png';
-import tileForest from './assets/art/tiles/forest.png';
-import tileHill from './assets/art/tiles/hill.png';
-import tileWall from './assets/art/tiles/wall.png';
-import tileFord from './assets/art/tiles/ford.png';
-import tileVillage from './assets/art/tiles/village.png';
-import tileShop from './assets/art/tiles/shop.png';
-import tileSecret from './assets/art/tiles/secret.png';
-import tileHarbor from './assets/art/tiles/harbor.png';
+import spriteLin from './assets/art/sprite-lin.png';
+import spriteSu from './assets/art/sprite-su.png';
+import spriteFang from './assets/art/sprite-fang.png';
+import spriteHai from './assets/art/sprite-hai.png';
+import spriteBandit from './assets/art/sprite-bandit.png';
+import spritePirate from './assets/art/sprite-pirate.png';
+import spriteDeserter from './assets/art/sprite-deserter.png';
 
 export const ART = {
   cover: coverUrl,
@@ -40,16 +34,11 @@ export const ART = {
     m2_pass: bgM2,
     m3_harbor: bgM3,
   },
-  tiles: {
-    plain: tilePlain,
-    forest: tileForest,
-    hill: tileHill,
-    wall: tileWall,
-    ford: tileFord,
-    village: tileVillage,
-    shop: tileShop,
-    secret: tileSecret,
-    harbor: tileHarbor,
+  /** 連續手繪戰場圖（格盤背景，非碎塊地磚） */
+  board: {
+    m1_tutorial: boardM1,
+    m2_pass: boardM2,
+    m3_harbor: boardM3,
   },
   portrait: {
     lin_qingchuan: unitLin,
@@ -57,16 +46,17 @@ export const ART = {
     fang_shuo: unitFang,
     hai_ning: unitHai,
   },
-  token: {
-    lin_qingchuan: tokenLin,
-    su_wanqing: tokenSu,
-    fang_shuo: tokenFang,
-    hai_ning: tokenHai,
+  /** Q版全身立繪（站在格上） */
+  sprite: {
+    lin_qingchuan: spriteLin,
+    su_wanqing: spriteSu,
+    fang_shuo: spriteFang,
+    hai_ning: spriteHai,
   },
-  enemyToken: {
-    bandit: tokenBandit,
-    pirate: tokenPirate,
-    deserter: tokenDeserter,
+  enemySprite: {
+    bandit: spriteBandit,
+    pirate: spritePirate,
+    deserter: spriteDeserter,
   },
   enemyPortrait: {
     bandit: enemyBandit,
@@ -77,6 +67,10 @@ export const ART = {
 
 export function mapBackground(mapId) {
   return ART.mapBg[mapId] || ART.mapBg.m1_tutorial;
+}
+
+export function boardFor(mapId) {
+  return ART.board[mapId] || ART.board.m1_tutorial;
 }
 
 export function portraitFor(unit) {
@@ -92,28 +86,32 @@ export function portraitFor(unit) {
   return null;
 }
 
-export function tokenFor(unit) {
+export function spriteFor(unit) {
   if (!unit) return null;
-  if (unit.srcUid && ART.token[unit.srcUid]) return ART.token[unit.srcUid];
-  if (unit.uid && ART.token[unit.uid]) return ART.token[unit.uid];
+  if (unit.srcUid && ART.sprite[unit.srcUid]) return ART.sprite[unit.srcUid];
+  if (unit.uid && ART.sprite[unit.uid]) return ART.sprite[unit.uid];
   if (unit.side === 'enemy' || unit.boss) {
-    if (unit.boss) return ART.enemyToken.deserter;
-    if (unit.tree === 'ranged') return ART.enemyToken.pirate;
-    if (unit.tree === 'magic') return ART.enemyToken.pirate;
-    return ART.enemyToken.bandit;
+    if (unit.boss) return ART.enemySprite.deserter;
+    if (unit.tree === 'ranged') return ART.enemySprite.pirate;
+    if (unit.tree === 'magic') return ART.enemySprite.pirate;
+    return ART.enemySprite.bandit;
   }
-  // fallback by name heuristics for player without srcUid
   const n = unit.name || '';
-  if (n.includes('青川')) return ART.token.lin_qingchuan;
-  if (n.includes('晚晴')) return ART.token.su_wanqing;
-  if (n.includes('方朔')) return ART.token.fang_shuo;
-  if (n.includes('海寧')) return ART.token.hai_ning;
+  if (n.includes('青川')) return ART.sprite.lin_qingchuan;
+  if (n.includes('晚晴')) return ART.sprite.su_wanqing;
+  if (n.includes('方朔')) return ART.sprite.fang_shuo;
+  if (n.includes('海寧')) return ART.sprite.hai_ning;
   return null;
 }
 
-/** 戰鬥格上的單位標記（圖片優先，否則 SVG） */
-export function unitTokenHTML(unit, size = 36) {
-  const tok = tokenFor(unit);
+/** @deprecated 改用 sprite；保留別名以免舊呼叫炸掉 */
+export function tokenFor(unit) {
+  return spriteFor(unit);
+}
+
+/** 戰鬥格上的 Q 版全身立繪（腳底 HP） */
+export function unitTokenHTML(unit, size = 44) {
+  const spr = spriteFor(unit);
   const tree = TREES[unit.tree] || TREES.melee;
   const color = tree.color;
   const isEnemy = unit.side === 'enemy';
@@ -123,11 +121,11 @@ export function unitTokenHTML(unit, size = 36) {
   const hpColor = hpPct > 40 ? '#4ec99a' : '#e05050';
   const crown = unit.boss ? '★' : unit.hero ? '◆' : '';
   const acted = unit.acted ? ' acted' : '';
-  if (tok) {
-    return `<div class="unit-token${acted}" style="width:${size}px;height:${size}px;--ring:${stroke};--team:${team}">
-      <span class="tok-shadow"></span>
-      <span class="tok-base"></span>
-      <img src="${tok}" alt="${unit.name}" draggable="false" />
+  const h = Math.round(size * 1.35);
+  if (spr) {
+    return `<div class="unit-sprite${acted}" style="width:${size}px;height:${h}px;--ring:${stroke};--team:${team}">
+      <span class="spr-shadow"></span>
+      <img src="${spr}" alt="${unit.name}" draggable="false" />
       ${crown ? `<span class="crown">${crown}</span>` : ''}
       <span class="hpbar"><i style="width:${hpPct}%;background:${hpColor}"></i></span>
     </div>`;
@@ -135,7 +133,7 @@ export function unitTokenHTML(unit, size = 36) {
   return unitTokenSVG(unit, size);
 }
 
-export function unitTokenSVG(unit, size = 36) {
+export function unitTokenSVG(unit, size = 40) {
   const tree = TREES[unit.tree] || TREES.melee;
   const color = tree.color;
   const letter = (unit.name || '?').slice(0, 1);
@@ -144,26 +142,29 @@ export function unitTokenSVG(unit, size = 36) {
   const bg = isEnemy ? '#3a1a1a' : '#0d2137';
   const stroke = isEnemy ? '#e05050' : color;
   const crown = unit.boss ? '★' : unit.hero ? '◆' : '';
+  const h = Math.round(size * 1.3);
   return `
-<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 40 40">
-  <rect x="1" y="1" width="38" height="38" rx="8" fill="${bg}" stroke="${stroke}" stroke-width="2"/>
-  <circle cx="20" cy="16" r="8" fill="${color}" opacity="0.9"/>
-  <text x="20" y="20" text-anchor="middle" font-size="10" font-weight="700" fill="#0a1520">${letter}</text>
-  <text x="20" y="32" text-anchor="middle" font-size="8" fill="${stroke}">${CLASSES[unit.classId]?.name?.slice(0, 2) || ''}</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${h}" viewBox="0 0 40 52">
+  <ellipse cx="20" cy="48" rx="12" ry="3" fill="${isEnemy ? '#c0392b88' : '#2a7fd488'}"/>
+  <rect x="8" y="14" width="24" height="28" rx="6" fill="${bg}" stroke="${stroke}" stroke-width="2"/>
+  <circle cx="20" cy="12" r="9" fill="${color}" opacity="0.95"/>
+  <text x="20" y="16" text-anchor="middle" font-size="10" font-weight="700" fill="#0a1520">${letter}</text>
+  <text x="20" y="36" text-anchor="middle" font-size="7" fill="${stroke}">${CLASSES[unit.classId]?.name?.slice(0, 2) || ''}</text>
   ${crown ? `<text x="32" y="10" font-size="8" fill="#ffd700">${crown}</text>` : ''}
-  <rect x="4" y="35" width="32" height="3" rx="1" fill="#222"/>
-  <rect x="4" y="35" width="${32 * hpPct / 100}" height="3" rx="1" fill="${hpPct > 40 ? '#4ec99a' : '#e05050'}"/>
+  <rect x="6" y="46" width="28" height="3" rx="1" fill="#222"/>
+  <rect x="6" y="46" width="${28 * hpPct / 100}" height="3" rx="1" fill="${hpPct > 40 ? '#4ec99a' : '#e05050'}"/>
 </svg>`;
-}
-
-export function tileUrl(tid) {
-  return ART.tiles[tid] || ART.tiles.plain;
 }
 
 export function terrainPattern(tid) {
   const map = {
-    plain: '平', hill: '山', forest: '林', wall: '牆', ford: '灘',
+    plain: '', hill: '山', forest: '林', wall: '牆', ford: '灘',
     village: '村', shop: '店', secret: '※', harbor: '港',
   };
-  return map[tid] || '·';
+  return map[tid] || '';
+}
+
+/** 特殊地形小標（連續地圖上僅輕量圖示，非碎塊地磚） */
+export function terrainBadge(tid) {
+  return terrainPattern(tid);
 }
