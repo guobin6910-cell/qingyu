@@ -302,7 +302,7 @@ export function buildCombatPlan(battle, attacker, target, opts = {}) {
     dmg = Math.round(dmg * (sk.power || 1.5));
     if (sk.id === 'bi_sha_break') dmg = Math.round(dmg * 1.1);
     skillName = sk.name;
-    ultimate = true;
+    ultimate = sk.tier !== 'tech';
     markSkillUsed = true;
     if (sk.aoe) {
       const extras = battle.units.filter(
@@ -342,6 +342,7 @@ export function buildCombatPlan(battle, attacker, target, opts = {}) {
     counterDmg,
     skillName,
     ultimate,
+    tier: ultimate ? 'ulti' : (skillName ? 'tech' : null),
     aoe,
     finishAct: finish,
     markSkillUsed,
@@ -360,6 +361,21 @@ export function commitAttackPlan(battle, plan) {
     target.hp = Math.min(target.maxHp, target.hp + h);
     pushFloat(battle, target.x, target.y, `+${h}`, 'heal');
     battle.log.push(`${unit.name} 治療 ${target.name} +${h}`);
+  } else if (plan.kind === 'skill_heal') {
+    if (plan.markSkillUsed && unit.skill) unit.skill.used = true;
+    if (plan.skillName) battle.log.push(`${unit.name} 發動【${plan.skillName}】！`);
+    for (const ht of plan.healTargets || []) {
+      const a = battle.units.find((u) => u.id === ht.id);
+      if (!a || !a.alive) continue;
+      a.hp = Math.min(a.maxHp, a.hp + ht.amount);
+      pushFloat(battle, a.x, a.y, `+${ht.amount}`, 'heal');
+    }
+  } else if (plan.kind === 'skill_buff') {
+    if (plan.markSkillUsed && unit.skill) unit.skill.used = true;
+    unit._buffDef = plan.buffDef || 8;
+    unit._counterBonus = plan.counterBonus || 1.5;
+    pushFloat(battle, unit.x, unit.y, plan.skillName || '強化', 'buff');
+    if (plan.skillName) battle.log.push(`${unit.name} 發動【${plan.skillName}】`);
   } else {
     if (plan.markSkillUsed && unit.skill) {
       unit.skill.used = true;
@@ -408,35 +424,64 @@ export function tryAttack(battle, tx, ty) {
 
 export function trySkill(battle) {
   const unit = battle.units.find((u) => u.id === battle.selected);
-  if (!unit || !unit.skill || unit.skill.used || battle.mode !== 'act') return false;
+  if (!unit || !unit.skill || unit.skill.used || battle.mode !== 'act') return null;
   const sk = unit.skill;
   if (sk.type === 'buff') {
-    unit._buffDef = 8;
-    unit._counterBonus = 1.5;
-    unit.skill.used = true;
-    pushFloat(battle, unit.x, unit.y, sk.name, 'buff');
-    battle.log.push(`${unit.name} 發動【${sk.name}】`);
-    finishAct(battle, unit);
-    return true;
+    return {
+      kind: 'skill_buff',
+      attackerId: unit.id,
+      targetId: unit.id,
+      attacker: snapUnit(unit),
+      defender: snapUnit(unit),
+      healAmount: 0,
+      dmg: 0,
+      counterDmg: 0,
+      skillName: sk.name,
+      ultimate: sk.tier !== 'tech',
+      tier: sk.tier || 'ulti',
+      aoe: [],
+      finishAct: true,
+      markSkillUsed: true,
+      buffDef: 8,
+      counterBonus: 1.5,
+    };
   }
   if (sk.type === 'heal') {
     const allies = battle.units.filter(
-      (u) => u.alive && u.side === 'player' && manhattan(u.x, u.y, unit.x, unit.y) <= 2
+      (u) => u.alive && u.side === unit.side && manhattan(u.x, u.y, unit.x, unit.y) <= 2
     );
-    for (const a of allies) {
-      const h = Math.round(calcHeal(unit, a) * (sk.power || 1.5));
-      a.hp = Math.min(a.maxHp, a.hp + h);
-      pushFloat(battle, a.x, a.y, `+${h}`, 'heal');
-    }
-    unit.skill.used = true;
-    battle.log.push(`${unit.name} 發動【${sk.name}】`);
-    finishAct(battle, unit);
-    return true;
+    const heals = allies.map((a) => ({
+      id: a.id,
+      name: a.name,
+      x: a.x,
+      y: a.y,
+      amount: Math.round(calcHeal(unit, a) * (sk.power || 1.5)),
+      hpBefore: a.hp,
+      maxHp: a.maxHp,
+    }));
+    const primary = allies.find((a) => a.id === unit.id) || allies[0] || unit;
+    return {
+      kind: 'skill_heal',
+      attackerId: unit.id,
+      targetId: primary.id,
+      attacker: snapUnit(unit),
+      defender: snapUnit(primary),
+      healAmount: heals.find((h) => h.id === primary.id)?.amount || 0,
+      healTargets: heals,
+      dmg: 0,
+      counterDmg: 0,
+      skillName: sk.name,
+      ultimate: sk.tier !== 'tech',
+      tier: sk.tier || 'ulti',
+      aoe: [],
+      finishAct: true,
+      markSkillUsed: true,
+    };
   }
   // attack skill → 進入 skill 瞄準
   battle.mode = 'skill';
   battle.attackHint = computeAttackRange(battle, unit);
-  return true;
+  return { kind: 'aim' };
 }
 
 export function waitUnit(battle) {
@@ -705,7 +750,12 @@ function playerGreedyAct(battle, p) {
   if (t?.special === 'secret') battle.flags.steppedSecret = true;
 
   if (best.kind === 'atk' && best.target) {
-    const dmg = calcDamage(battle, p, best.target);
+    let dmg = calcDamage(battle, p, best.target);
+    if (p.skill && !p.skill.used && p.skill.type === 'attack') {
+      dmg = Math.round(dmg * (p.skill.power || 1.25));
+      p.skill.used = true;
+      battle.log.push(`${p.name} 發動【${p.skill.name}】！`);
+    }
     best.target.hp -= dmg;
     pushFloat(battle, best.target.x, best.target.y, `-${dmg}`, 'dmg');
     if (best.target.hp <= 0) {
@@ -713,9 +763,22 @@ function playerGreedyAct(battle, p) {
       best.target.hp = 0;
     }
   } else if (best.kind === 'heal' && best.target) {
-    const h = calcHeal(p, best.target);
-    best.target.hp = Math.min(best.target.maxHp, best.target.hp + h);
-    pushFloat(battle, best.target.x, best.target.y, `+${h}`, 'heal');
+    if (p.skill && !p.skill.used && p.skill.type === 'heal') {
+      const allies = battle.units.filter(
+        (u) => u.alive && u.side === 'player' && manhattan(u.x, u.y, p.x, p.y) <= 2
+      );
+      for (const a of allies) {
+        const h = Math.round(calcHeal(p, a) * (p.skill.power || 1.2));
+        a.hp = Math.min(a.maxHp, a.hp + h);
+        pushFloat(battle, a.x, a.y, `+${h}`, 'heal');
+      }
+      p.skill.used = true;
+      battle.log.push(`${p.name} 發動【${p.skill.name}】！`);
+    } else {
+      const h = calcHeal(p, best.target);
+      best.target.hp = Math.min(best.target.maxHp, best.target.hp + h);
+      pushFloat(battle, best.target.x, best.target.y, `+${h}`, 'heal');
+    }
   }
   p.acted = true;
   p.moved = true;

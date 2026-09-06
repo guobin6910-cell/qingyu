@@ -51,13 +51,15 @@ export const TREES = {
  * parent: 前置職階 id
  * meritNeed: 解鎖所需功勳星
  * exclusive: 僅特定英雄
- * skill: 必殺（rank3+）
+ * skill: 戰技（rank1）或必殺（rank3+）；tier tech|ulti
  */
 export const CLASSES = {
   // —— 近戰 ——
   dao_wei: {
     id: 'dao_wei', tree: 'melee', rank: 1, name: '島衛',
     move: 3, range: 1, hp: 38, atk: 9, def: 6, mag: 2, res: 3,
+    skill: { id: 'zhan_ji_guard', name: '穩守一擊', type: 'attack', power: 1.25, tier: 'tech',
+      desc: '凝聚一擊，造成 125% 傷害。（每場一次・戰技）' },
     desc: '青嶼沿岸的基礎衛士。',
   },
   tie_dun: {
@@ -76,14 +78,14 @@ export const CLASSES = {
     id: 'cheng_jiang', tree: 'melee', rank: 3, name: '城壁將',
     branch: 'melee_r3a', parent: 'tie_dun', meritNeed: 2,
     move: 3, range: 1, hp: 55, atk: 11, def: 14, mag: 3, res: 7,
-    skill: { id: 'bi_sha_guard', name: '壁立千仞', type: 'buff', power: 0, desc: '本回合自身防禦+8，並反擊傷害+50%。' },
+    skill: { id: 'bi_sha_guard', name: '壁立千仞', type: 'buff', power: 0, tier: 'ulti', desc: '本回合自身防禦+8，並反擊傷害+50%。' },
     desc: '如城牆般不可撼動。',
   },
   lie_jia: {
     id: 'lie_jia', tree: 'melee', rank: 3, name: '裂甲騎士',
     branch: 'melee_r3b', parent: 'po_zhen', meritNeed: 2,
     move: 4, range: 1, hp: 48, atk: 16, def: 8, mag: 3, res: 4,
-    skill: { id: 'bi_sha_break', name: '裂甲一擊', type: 'attack', power: 1.6, desc: '對單體造成 160% 傷害，無視 半數防禦。' },
+    skill: { id: 'bi_sha_break', name: '裂甲一擊', type: 'attack', power: 1.6, tier: 'ulti', desc: '對單體造成 160% 傷害，無視 半數防禦。' },
     desc: '一槍洞穿甲胄。',
   },
   qing_shou: {
@@ -91,7 +93,7 @@ export const CLASSES = {
     parent: 'cheng_jiang', meritNeed: 4, exclusive: 'lin_qingchuan',
     altParents: ['lie_jia'],
     move: 4, range: 1, hp: 70, atk: 15, def: 16, mag: 4, res: 8,
-    skill: { id: 'bi_sha_isle', name: '青嶼之心', type: 'attack', power: 1.8, desc: '島嶼之力：高傷並回復自身 20% HP。' },
+    skill: { id: 'bi_sha_isle', name: '青嶼之心', type: 'attack', power: 1.8, tier: 'ulti', desc: '島嶼之力：高傷並回復自身 20% HP。' },
     desc: '守護整座青嶼的傳說職階。',
   },
 
@@ -100,6 +102,8 @@ export const CLASSES = {
     id: 'chao_tu', tree: 'magic', rank: 1, name: '潮語徒',
     move: 3, range: 2, hp: 28, atk: 3, def: 3, mag: 10, res: 6,
     heal: true,
+    skill: { id: 'zhan_ji_tide', name: '微潮癒', type: 'heal', power: 1.2, tier: 'tech',
+      desc: '回復周圍友軍少量 HP。（每場一次・戰技）' },
     desc: '聆聽潮聲的初學者。',
   },
   yu_quan: {
@@ -120,14 +124,14 @@ export const CLASSES = {
     branch: 'magic_r3a', parent: 'yu_quan', meritNeed: 2,
     move: 3, range: 2, hp: 38, atk: 4, def: 4, mag: 14, res: 11,
     heal: true,
-    skill: { id: 'bi_sha_tide', name: '潮湧癒合', type: 'heal', power: 1.5, aoe: true, desc: '回復周圍友軍大量 HP。' },
+    skill: { id: 'bi_sha_tide', name: '潮湧癒合', type: 'heal', power: 1.5, aoe: true, tier: 'ulti', desc: '回復周圍友軍大量 HP。' },
     desc: '潮汐聖力護佑同伴。',
   },
   lan_fa: {
     id: 'lan_fa', tree: 'magic', rank: 3, name: '嵐法師',
     branch: 'magic_r3b', parent: 'wu_zhou', meritNeed: 2,
     move: 3, range: 2, hp: 34, atk: 5, def: 3, mag: 17, res: 9,
-    skill: { id: 'bi_sha_storm', name: '嵐擊', type: 'attack', power: 1.7, desc: '魔法暴擊，對單體造成高額術傷。' },
+    skill: { id: 'bi_sha_storm', name: '嵐擊', type: 'attack', power: 1.7, tier: 'ulti', desc: '魔法暴擊，對單體造成高額術傷。' },
     desc: '召喚島嶼風暴。',
   },
 
@@ -135,6 +139,8 @@ export const CLASSES = {
   gang_lie: {
     id: 'gang_lie', tree: 'ranged', rank: 1, name: '港獵手',
     move: 3, range: 2, hp: 30, atk: 10, def: 3, mag: 2, res: 3,
+    skill: { id: 'zhan_ji_shot', name: '迅羽', type: 'attack', power: 1.3, tier: 'tech',
+      desc: '迅捷一箭，造成 130% 傷害。（每場一次・戰技）' },
     desc: '港邊長大的弓手。',
   },
   ji_yu: {
@@ -153,14 +159,14 @@ export const CLASSES = {
     id: 'ju_feng', tree: 'ranged', rank: 3, name: '颶風射手',
     branch: 'ranged_r3a', parent: 'ji_yu', meritNeed: 2,
     move: 4, range: 2, hp: 38, atk: 15, def: 4, mag: 3, res: 5,
-    skill: { id: 'bi_sha_gale', name: '颶羽連射', type: 'attack', power: 1.4, aoe: true, desc: '對相鄰最多 3 名敵人連射。' },
+    skill: { id: 'bi_sha_gale', name: '颶羽連射', type: 'attack', power: 1.4, aoe: true, tier: 'ulti', desc: '對相鄰最多 3 名敵人連射。' },
     desc: '羽箭如颶風席捲。',
   },
   po_lang: {
     id: 'po_lang', tree: 'ranged', rank: 3, name: '破浪遊俠',
     branch: 'ranged_r3b', parent: 'chuan_yun', meritNeed: 2,
     move: 3, range: 3, hp: 40, atk: 16, def: 5, mag: 2, res: 4,
-    skill: { id: 'bi_sha_wave', name: '破浪穿心', type: 'attack', power: 1.75, desc: '超遠單點必殺。' },
+    skill: { id: 'bi_sha_wave', name: '破浪穿心', type: 'attack', power: 1.75, tier: 'ulti', desc: '超遠單點必殺。' },
     desc: '專打海上要害。',
   },
 };
@@ -336,4 +342,10 @@ export function classesInTree(treeId) {
 
 export function rootClass(treeId) {
   return Object.values(CLASSES).find((c) => c.tree === treeId && c.rank === 1);
+}
+
+/** 戰技 / 必殺 顯示名 */
+export function skillLabel(skill) {
+  if (!skill) return '';
+  return skill.tier === 'tech' ? '戰技' : '必殺';
 }

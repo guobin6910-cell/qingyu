@@ -22,6 +22,15 @@ import tokenHai from './assets/art/token-hai.png';
 import tokenBandit from './assets/art/token-bandit.png';
 import tokenPirate from './assets/art/token-pirate.png';
 import tokenDeserter from './assets/art/token-deserter.png';
+import tilePlain from './assets/art/tiles/plain.png';
+import tileForest from './assets/art/tiles/forest.png';
+import tileHill from './assets/art/tiles/hill.png';
+import tileWall from './assets/art/tiles/wall.png';
+import tileFord from './assets/art/tiles/ford.png';
+import tileVillage from './assets/art/tiles/village.png';
+import tileShop from './assets/art/tiles/shop.png';
+import tileSecret from './assets/art/tiles/secret.png';
+import tileHarbor from './assets/art/tiles/harbor.png';
 
 export const ART = {
   cover: coverUrl,
@@ -30,6 +39,17 @@ export const ART = {
     m1_tutorial: bgM1,
     m2_pass: bgM2,
     m3_harbor: bgM3,
+  },
+  tiles: {
+    plain: tilePlain,
+    forest: tileForest,
+    hill: tileHill,
+    wall: tileWall,
+    ford: tileFord,
+    village: tileVillage,
+    shop: tileShop,
+    secret: tileSecret,
+    harbor: tileHarbor,
   },
   portrait: {
     lin_qingchuan: unitLin,
@@ -129,6 +149,10 @@ export function unitTokenSVG(unit, size = 36) {
   <rect x="4" y="35" width="32" height="3" rx="1" fill="#222"/>
   <rect x="4" y="35" width="${32 * hpPct / 100}" height="3" rx="1" fill="${hpPct > 40 ? '#4ec99a' : '#e05050'}"/>
 </svg>`;
+}
+
+export function tileUrl(tid) {
+  return ART.tiles[tid] || ART.tiles.plain;
 }
 
 export function terrainPattern(tid) {

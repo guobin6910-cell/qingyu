@@ -1,7 +1,7 @@
 /** 畫面與操作 */
 import {
   TITLE, EMPIRE, PROLOGUE, MAPS, CLASSES, TREES, TERRAIN, ITEMS,
-  TRANSFER_GOLD, getClassChildren, classesInTree, rootClass,
+  TRANSFER_GOLD, getClassChildren, classesInTree, rootClass, skillLabel,
 } from './data.js';
 import {
   newGame, saveGame, loadGame, clearSave, unitStats, restRoster,
@@ -13,7 +13,7 @@ import {
   endPlayerPhase, terrainAt, unitAt, syncBattleToState,
   planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
 } from './battle.js';
-import { ART, mapBackground, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
+import { ART, mapBackground, portraitFor, unitTokenHTML, terrainPattern, tileUrl } from './art.js';
 
 let app, state, screen, battle, hubTab = 'mission', toastTimer;
 
@@ -160,7 +160,7 @@ function showHub() {
           </div>
           <div class="muted">HP ${u.hp}/${u.maxHp}　移 ${s.move}　射程 ${s.range}
            　攻 ${s.atk} 防 ${s.def} 術 ${s.mag}</div>
-          ${s.skill ? `<div class="muted">必殺：${s.skill.name}</div>` : ''}
+          ${s.skill ? `<div class="muted">${skillLabel(s.skill)}：${s.skill.name}</div>` : ''}
           ${u.exclusiveReady ? `<div class="gold">可覺醒專屬 Rank-4</div>` : ''}
           </div>
         </div>`;
@@ -219,8 +219,12 @@ function renderClassTab(body) {
       const promoteBtns = children
         .map((c) => {
           const chk = canPromote(u, c.id);
+          const sk = c.skill
+            ? ` · 解鎖${skillLabel(c.skill)}【${c.skill.name}】`
+            : (c.rank >= 3 ? '' : '');
+          const tip = (chk.reason || '') + (c.skill ? ` ${c.skill.desc}` : '');
           return `<button class="btn small" data-promo="${u.uid}:${c.id}" ${chk.ok ? '' : 'disabled'}
-            title="${chk.reason || ''}">→ ${c.name}${c.meritNeed ? `(${c.meritNeed}★)` : ''}</button>`;
+            title="${tip.replace(/"/g, '&quot;')}">→ ${c.name}${c.meritNeed ? `(${c.meritNeed}★)` : ''}${sk}</button>`;
         })
         .join('');
       const treeBtns = Object.values(TREES)
@@ -232,10 +236,19 @@ function renderClassTab(body) {
             轉${t.name}（${CLASSES[top].name}）${TRANSFER_GOLD}金</button>`;
         })
         .join('');
+      const curSkill = s.skill
+        ? `<div class="skill-tag">${skillLabel(s.skill)}：【${s.skill.name}】— ${s.skill.desc}</div>`
+        : `<div class="muted">晉升至 Rank3 可解鎖強力必殺</div>`;
+      const pathHint = Object.values(CLASSES)
+        .filter((c) => c.tree === u.tree && c.skill && c.rank >= 3)
+        .map((c) => `${c.name}→【${c.skill.name}】`)
+        .join('　');
       return `<div class="card ${s.tree}">
         <div class="name">${u.name} · ${s.name}</div>
         <div class="stars">${'★'.repeat(u.merit || 0)}${'☆'.repeat(4 - (u.merit || 0))}</div>
-        <div class="muted">同系晉升（選分支會鎖定另一邊）：</div>
+        ${curSkill}
+        ${pathHint ? `<div class="muted">本系必殺路線：${pathHint}</div>` : ''}
+        <div class="muted">同系晉升（選分支會鎖定另一邊；Rank2 需1★、Rank3 需2★，第一章地圖功勳足夠）：</div>
         <div class="row">${promoteBtns || '<span class="muted">已達頂或需更多功勳</span>'}</div>
         <div class="muted">轉系：</div>
         <div class="row">${treeBtns}</div>
@@ -283,22 +296,24 @@ function renderBattle() {
   let gridHtml = '';
   for (let y = 0; y < b.h; y++) {
     for (let x = 0; x < b.w; x++) {
-      const t = terrainAt(b, x, y);
+      const ter = terrainAt(b, x, y);
       const u = unitAt(b, x, y);
       const isMove = b.moveHint.some((c) => c.x === x && c.y === y);
       const isAtk = b.attackHint.some((c) => c.x === x && c.y === y);
       const sel = u && u.id === b.selected;
       const cls = [
         'cell',
+        `tile-${ter.id}`,
         isMove ? 'move-hint' : '',
         isAtk ? 'atk-hint' : '',
         sel ? 'selected' : '',
       ].join(' ');
+      const tex = tileUrl(ter.id);
       gridHtml += `<div class="${cls}" data-x="${x}" data-y="${y}"
-        style="background:${t.color};width:${cellSize}px;height:${cellSize}px"
-        title="${t.name}">
-        ${u ? '' : `<span>${terrainPattern(t.id)}</span>`}
-        ${u ? `<div class="tok">${unitTokenHTML(u, cellSize - 4)}</div>` : ''}
+        style="--tile:url('${tex}');background-color:${ter.color};width:${cellSize}px;height:${cellSize}px"
+        title="${ter.name}">
+        <span class="tile-label">${u ? '' : terrainPattern(ter.id)}</span>
+        ${u ? `<div class="tok" data-uid="${u.id}">${unitTokenHTML(u, cellSize - 4)}</div>` : ''}
       </div>`;
     }
   }
@@ -306,10 +321,18 @@ function renderBattle() {
   const selU = b.units.find((u) => u.id === b.selected);
   const phaseLabel = b.phase === 'player' ? '我軍' : '敵軍';
   const canSkill = selU && selU.skill && !selU.skill.used && b.mode === 'act';
+  const skillBtnLabel = canSkill
+    ? `${skillLabel(selU.skill)}·${selU.skill.name}`
+    : (selU?.skill?.used ? '已用完' : '戰技／必殺');
+  const skillTip = canSkill
+    ? `<div class="skill-ready">✦ 可發動${skillLabel(selU.skill)}【${selU.skill.name}】— ${selU.skill.desc}</div>`
+    : '';
 
   const bgUrl = mapBackground(b.mapDef.id);
   app.innerHTML = `
-  <div class="screen battle-screen" style="background-image:linear-gradient(180deg,#0b1a2acc,#0b1a2ae8),url('${bgUrl}')">
+  <div class="screen battle-screen">
+    <div class="battle-bg" style="background-image:url('${bgUrl}')"></div>
+    <div class="battle-bg-vignette"></div>
     <div class="battle-top">
       <strong>${b.mapDef.name}</strong>
       <span>T${b.turn} · ${phaseLabel}</span>
@@ -324,9 +347,10 @@ function renderBattle() {
       <div class="muted" style="margin-bottom:4px">
         ${selU ? `${selU.name}（${CLASSES[selU.classId].name}）HP ${selU.hp}/${selU.maxHp}` : '點選我軍單位 → 移動 → 攻擊／待機'}
       </div>
+      ${skillTip}
       <div class="actions">
         <button class="btn small" id="btn-wait" ${selU && (b.mode === 'act' || b.mode === 'move') ? '' : 'disabled'}>待機</button>
-        <button class="btn small" id="btn-skill" ${canSkill ? '' : 'disabled'}>必殺</button>
+        <button class="btn small ${canSkill ? 'skill-ready-btn' : ''}" id="btn-skill" ${canSkill ? '' : 'disabled'}>${skillBtnLabel}</button>
         <button class="btn small" id="btn-end" ${b.phase === 'player' && !b.result ? '' : 'disabled'}>結束回合</button>
         <button class="btn small ghost" id="btn-flee">撤退</button>
       </div>
@@ -347,10 +371,20 @@ function renderBattle() {
     if (waitUnit(b)) afterPlayerAction();
   };
   app.querySelector('#btn-skill').onclick = () => {
-    if (trySkill(b)) {
-      if (b.mode === 'skill') renderBattle();
-      else afterPlayerAction();
+    const plan = trySkill(b);
+    if (!plan) return;
+    if (plan.kind === 'aim') {
+      toast('選擇目標發動戰技／必殺');
+      renderBattle();
+      return;
     }
+    // heal / buff skill → cut-in then commit
+    playGridLunge(b.selected, null, () => {
+      showBattleCutIn(plan, () => {
+        commitAttackPlan(b, plan);
+        afterPlayerAction();
+      });
+    });
   };
   app.querySelector('#btn-end').onclick = () => {
     endPlayerPhase(b);
@@ -402,9 +436,11 @@ function onCellClick(x, y) {
   if (b.mode === 'act' || b.mode === 'skill') {
     const plan = planTryAttack(b, x, y);
     if (plan) {
-      showBattleCutIn(plan, () => {
-        commitAttackPlan(b, plan);
-        afterPlayerAction();
+      playGridLunge(plan.attackerId, plan.targetId, () => {
+        showBattleCutIn(plan, () => {
+          commitAttackPlan(b, plan);
+          afterPlayerAction();
+        });
       });
       return;
     }
@@ -566,14 +602,34 @@ function showBattleResult() {
 
   const sheet = document.createElement('div');
   sheet.className = 'modal';
+  const promoteNudge = [];
+  if (win) {
+    for (const u of state.roster.filter((x) => x.recruited)) {
+      const kids = getClassChildren(u.classId).filter((c) => canPromote(u, c.id).ok);
+      if (kids.length) {
+        const skNote = kids
+          .filter((c) => c.skill)
+          .map((c) => `${c.name}解鎖${skillLabel(c.skill)}【${c.skill.name}】`)
+          .join('、');
+        promoteNudge.push(
+          `${u.name} 可晉升：${kids.map((c) => c.name).join('／')}` +
+          (skNote ? `（${skNote}）` : '')
+        );
+      }
+    }
+  }
   sheet.innerHTML = `<div class="sheet">
     <h2>${win ? '勝利！' : '戰敗…'}</h2>
     <p>${win ? `獲得 ${b.mapDef.winGold} 金、全隊功勳 +${b.mapDef.winMerit}★` : '重整旗鼓，再戰一回。'}</p>
+    ${promoteNudge.length ? `<p class="gold">轉職提示：${promoteNudge.join('；')}。請至「轉職」頁晉升，解鎖更強戰技／必殺。</p>` : ''}
     ${state.flags.exclusiveUnlocked ? '<p class="gold">林青川可覺醒【青嶼守護】！請至轉職頁。</p>' : ''}
-    <button class="btn primary" id="btn-back">回據點</button>
+    <button class="btn primary" id="btn-back">${promoteNudge.length ? '前往轉職／據點' : '回據點'}</button>
   </div>`;
   app.appendChild(sheet);
-  sheet.querySelector('#btn-back').onclick = () => showHub();
+  sheet.querySelector('#btn-back').onclick = () => {
+    if (promoteNudge.length) hubTab = 'class';
+    showHub();
+  };
 }
 
 
@@ -602,20 +658,41 @@ function cutinSideHTML(snap, side) {
   </div>`;
 }
 
-/** 仙劍式交鋒特寫（致敬布局，原創美術） */
+/** 格子上短衝刺，再進入特寫 */
+function playGridLunge(attackerId, targetId, then) {
+  const atkEl = attackerId ? app.querySelector(`.tok[data-uid="${attackerId}"]`) : null;
+  const defEl = targetId ? app.querySelector(`.tok[data-uid="${targetId}"]`) : null;
+  if (atkEl) atkEl.classList.add('tok-lunge');
+  if (defEl) defEl.classList.add('tok-brace');
+  const wrap = app.querySelector('.grid-wrap');
+  if (wrap) wrap.classList.add('grid-anticipate');
+  setTimeout(() => {
+    if (atkEl) atkEl.classList.remove('tok-lunge');
+    if (defEl) defEl.classList.remove('tok-brace');
+    if (wrap) wrap.classList.remove('grid-anticipate');
+    then && then();
+  }, 180);
+}
+
+/** 仙劍式交鋒特寫：接近→軌跡→衝擊震動→扣血→跳字 */
 function showBattleCutIn(plan, onDone) {
   const existing = app.querySelector('.cutin-overlay');
   if (existing) existing.remove();
 
   const bg = battle ? mapBackground(battle.mapDef.id) : ART.cover;
   const ultimate = !!plan.ultimate;
-  const isHeal = plan.kind === 'heal';
-  const title = ultimate ? `【${plan.skillName || '必殺'}】` : (isHeal ? '治療' : '交鋒');
+  const isHeal = plan.kind === 'heal' || plan.kind === 'skill_heal';
+  const isBuff = plan.kind === 'skill_buff';
+  const isTech = plan.tier === 'tech' || (!ultimate && !!plan.skillName);
+  const title = plan.skillName
+    ? `【${plan.skillName}】`
+    : (isHeal ? '治療' : isBuff ? '強化' : '交鋒');
   const atkPor = portraitFor(plan.attacker);
   const defPor = portraitFor(plan.defender);
+  const vfxClass = isBuff ? 'buff' : isHeal ? 'heal' : ultimate ? 'ultimate' : isTech ? 'tech' : 'normal';
 
   const overlay = document.createElement('div');
-  overlay.className = `cutin-overlay${ultimate ? ' ultimate' : ''}${isHeal ? ' heal' : ''}`;
+  overlay.className = `cutin-overlay ${vfxClass}`;
   overlay.innerHTML = `
     <div class="cutin-dim" style="background-image:linear-gradient(180deg,#0b1a2acc,#0b1a2af2),url('${bg}')"></div>
     <div class="cutin-frame">
@@ -623,13 +700,15 @@ function showBattleCutIn(plan, onDone) {
       <div class="cutin-cols">
         ${cutinSideHTML(plan.attacker, 'left')}
         <div class="cutin-stage">
-          <div class="cutin-fighter atk ${ultimate ? 'ulti' : ''}">
+          <div class="cutin-trail"></div>
+          <div class="cutin-fighter atk ${ultimate ? 'ulti' : ''} ${isTech ? 'tech' : ''}">
             ${atkPor ? `<img src="${atkPor}" alt="" />` : unitTokenHTML({ ...plan.attacker, alive: true }, 72)}
           </div>
-          <div class="cutin-vs">${isHeal ? '＋' : 'VS'}</div>
+          <div class="cutin-vs">${isHeal ? '＋' : isBuff ? '◆' : 'VS'}</div>
           <div class="cutin-fighter def">
             ${defPor ? `<img src="${defPor}" alt="" />` : unitTokenHTML({ ...plan.defender, alive: true }, 72)}
           </div>
+          <div class="cutin-slash"></div>
           <div class="cutin-flash"></div>
           <div class="cutin-pop" hidden></div>
         </div>
@@ -640,11 +719,12 @@ function showBattleCutIn(plan, onDone) {
   app.appendChild(overlay);
 
   let finished = false;
+  const timers = [];
+  const later = (fn, ms) => { const id = setTimeout(fn, ms); timers.push(id); return id; };
   const finish = () => {
     if (finished) return;
     finished = true;
-    clearTimeout(tHit);
-    clearTimeout(tEnd);
+    timers.forEach(clearTimeout);
     overlay.classList.add('out');
     setTimeout(() => {
       overlay.remove();
@@ -654,25 +734,46 @@ function showBattleCutIn(plan, onDone) {
 
   const pop = overlay.querySelector('.cutin-pop');
   const flash = overlay.querySelector('.cutin-flash');
+  const slash = overlay.querySelector('.cutin-slash');
+  const trail = overlay.querySelector('.cutin-trail');
+  const stage = overlay.querySelector('.cutin-stage');
   const fighterAtk = overlay.querySelector('.cutin-fighter.atk');
   const fighterDef = overlay.querySelector('.cutin-fighter.def');
   const bars = overlay.querySelectorAll('[data-hp-bar]');
   const nums = overlay.querySelectorAll('[data-hp-num]');
 
-  // 開場微頓 → 衝刺 → 閃光與扣血
   requestAnimationFrame(() => overlay.classList.add('in'));
 
-  const tHit = setTimeout(() => {
+  // 1) approach
+  later(() => {
+    fighterAtk.classList.add('approach');
+    fighterDef.classList.add('approach');
+    trail.classList.add('show');
+  }, 80);
+
+  // 2) slash / cast trail
+  later(() => {
     fighterAtk.classList.add('lunge');
-    fighterDef.classList.add('lunge');
+    slash.classList.add(isHeal ? 'cast-heal' : isBuff ? 'cast-buff' : ultimate ? 'slash-ulti' : 'slash-normal');
+  }, 320);
+
+  // 3) impact shake + flash
+  later(() => {
+    fighterDef.classList.add('hit');
     flash.classList.add('boom');
+    stage.classList.add('shake');
     if (ultimate) overlay.classList.add('ulti-flash');
 
-    if (isHeal) {
+    if (isBuff) {
       pop.hidden = false;
-      pop.textContent = `+${plan.healAmount}`;
+      pop.textContent = plan.skillName || '強化';
+      pop.className = 'cutin-pop buff';
+    } else if (isHeal) {
+      const amount = plan.healAmount || (plan.healTargets && plan.healTargets[0]?.amount) || 0;
+      pop.hidden = false;
+      pop.textContent = `+${amount}`;
       pop.className = 'cutin-pop heal';
-      const newHp = Math.min(plan.defender.maxHp, plan.defender.hp + plan.healAmount);
+      const newHp = Math.min(plan.defender.maxHp, plan.defender.hp + amount);
       if (bars[1]) bars[1].style.width = hpPct(newHp, plan.defender.maxHp) + '%';
       if (nums[1]) nums[1].textContent = String(newHp);
     } else {
@@ -680,6 +781,7 @@ function showBattleCutIn(plan, onDone) {
       pop.textContent = `-${plan.dmg}`;
       pop.className = 'cutin-pop dmg';
       const defHp = Math.max(0, plan.defender.hp - plan.dmg);
+      // 4) HP drain (CSS transition)
       if (bars[1]) {
         bars[1].style.width = hpPct(defHp, plan.defender.maxHp) + '%';
         if (defHp / plan.defender.maxHp < 0.35) bars[1].classList.add('low');
@@ -687,7 +789,7 @@ function showBattleCutIn(plan, onDone) {
       if (nums[1]) nums[1].textContent = String(defHp);
 
       if (plan.counterDmg > 0) {
-        setTimeout(() => {
+        later(() => {
           const atkHp = Math.max(0, plan.attacker.hp - plan.counterDmg);
           if (bars[0]) {
             bars[0].style.width = hpPct(atkHp, plan.attacker.maxHp) + '%';
@@ -695,16 +797,18 @@ function showBattleCutIn(plan, onDone) {
           }
           if (nums[0]) nums[0].textContent = String(atkHp);
           pop.textContent = `反擊 -${plan.counterDmg}`;
-        }, 280);
+          fighterAtk.classList.add('hit');
+        }, 320);
       }
     }
-  }, ultimate ? 280 : 220);
+  }, 520);
 
-  const duration = ultimate ? 1200 : 1000;
-  const tEnd = setTimeout(finish, duration);
+  const duration = ultimate ? 1700 : isHeal || isBuff ? 1400 : 1500;
+  later(finish, duration);
 
   overlay.addEventListener('click', finish);
 }
+
 
 // 供 playtest 匯出
 export const _test = {

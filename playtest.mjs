@@ -99,6 +99,44 @@ if (r2 === "win") {
 saveGame(state, storage);
 check(!!storage.getItem(SAVE_KEY), "final save ok");
 
+
+// —— 戰技／必殺可用性 ——
+const starters = ["dao_wei", "chao_tu", "gang_lie"];
+for (const id of starters) {
+  check(!!CLASSES[id].skill, `Rank1 ${CLASSES[id].name} has 戰技`);
+  check(CLASSES[id].skill.tier === "tech", `Rank1 ${id} skill is tech tier`);
+}
+const r3 = Object.values(CLASSES).filter((c) => c.rank === 3);
+check(r3.every((c) => c.skill && c.skill.tier === "ulti"), "all Rank3 have ulti 必殺");
+
+// merit path: map1+map2 merit ≥2 → Rank3 reachable by map3
+{
+  const pathState = newGame();
+  applyBattleRewards(pathState, MAPS[0]);
+  applyBattleRewards(pathState, MAPS[1]);
+  const u = pathState.roster[0];
+  check(u.merit >= 2, `after map1+2 merit≥2 (got ${u.merit})`);
+  const toR2 = promote(u, "po_zhen");
+  check(toR2.ok, "path promote Rank2 破陣槍");
+  const toR3 = canPromote(u, "lie_jia");
+  check(toR3.ok, "Rank3 裂甲騎士 reachable before map3");
+  const did = promote(u, "lie_jia");
+  check(did.ok && CLASSES[u.classId].skill?.tier === "ulti", "Rank3 必殺 unlocked");
+}
+
+// battle skill use (Rank1 戰技)
+{
+  const s2 = newGame();
+  const bSkill = createBattle(s2, MAPS[0]);
+  const p0 = bSkill.units.find((u) => u.side === "player");
+  check(p0.skill && !p0.skill.used, "deployed starter has unused 戰技");
+  // force skill usage via autoplay path
+  const rSkill = autoPlayBattle(bSkill, 40);
+  check(rSkill === "win", `skill-map1 auto-clear (${rSkill})`);
+  const used = bSkill.units.filter((u) => u.side === "player" && u.skill?.used);
+  check(used.length >= 1, `at least one 戰技 used in battle (${used.length})`);
+}
+
 console.log("\n—— summary ——");
 console.log("cleared:", state.cleared);
 console.log("gold:", state.gold);

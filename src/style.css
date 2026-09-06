@@ -184,24 +184,61 @@ h2 { font-size: 1.2rem; color: var(--accent); }
 .cell {
   width: 42px;
   height: 42px;
-  border-radius: 4px;
+  border-radius: 5px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
-  color: rgba(255,255,255,0.35);
+  color: rgba(255,255,255,0.45);
   cursor: pointer;
+  background-image: var(--tile);
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.25);
+  overflow: hidden;
+}
+.cell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), transparent 40%, rgba(0,0,0,0.18));
+  pointer-events: none;
+  z-index: 0;
+}
+.cell .tile-label {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 2px #000a;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
 }
 .cell .tok {
   position: absolute; inset: 2px;
   display: flex; align-items: center; justify-content: center;
   pointer-events: none;
+  z-index: 2;
+  filter: drop-shadow(0 2px 3px #000c);
+  transition: transform 0.16s ease-out;
 }
 .cell .tok svg { width: 100%; height: 100%; }
-.cell.move-hint { outline: 2px solid #4a8fd4aa; outline-offset: -2px; background-image: linear-gradient(#4a8fd433, #4a8fd433); }
-.cell.atk-hint { outline: 2px solid #e05050aa; outline-offset: -2px; background-image: linear-gradient(#e0505033, #e0505033); }
-.cell.selected { outline: 2px solid #ffd700; outline-offset: -2px; }
+.cell .tok.tok-lunge { transform: translateY(-4px) scale(1.08); }
+.cell .tok.tok-brace { transform: scale(0.94); }
+.cell.move-hint { outline: 2px solid #4a8fd4ee; outline-offset: -2px; }
+.cell.move-hint::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(#4a8fd455, #4a8fd433);
+}
+.cell.atk-hint { outline: 2px solid #e05050ee; outline-offset: -2px; }
+.cell.atk-hint::before {
+  content: '';
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(#e0505055, #e0505033);
+}
+.cell.selected { outline: 2px solid #ffd700; outline-offset: -2px; box-shadow: 0 0 8px #ffd70066, inset 0 0 0 1px #0004; }
+.grid-wrap.grid-anticipate .grid { transform: scale(1.01); transition: transform 0.15s; }
 
 .float-layer {
   position: absolute; inset: 0; pointer-events: none; overflow: hidden;
@@ -324,7 +361,7 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   position: relative;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 0 0 2px var(--ring, #4a8fd4);
+  box-shadow: 0 0 0 2px var(--ring, #4a8fd4), 0 3px 6px #000a;
   background: #0a1520;
 }
 .unit-token img {
@@ -346,8 +383,10 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   display: block; height: 100%; background: #4ec99a;
 }
 .grid-wrap {
-  background: rgba(6,16,24,0.35);
+  background: rgba(6,16,24,0.2);
   border-radius: 10px;
+  position: relative;
+  z-index: 1;
 }
 
 /* —— 交鋒特寫（仙劍式布局致敬） —— */
@@ -631,4 +670,174 @@ h2 { font-size: 1.2rem; color: var(--accent); }
     display: flex;
     flex-direction: column;
   }
+}
+
+
+/* —— 戰場背景（地圖畫布＋暗角） —— */
+.battle-screen {
+  position: relative;
+  isolation: isolate;
+}
+.battle-bg {
+  position: absolute;
+  inset: -4% -6%;
+  background-size: cover;
+  background-position: center 40%;
+  filter: saturate(1.05) brightness(0.85);
+  transform: scale(1.05);
+  z-index: 0;
+  pointer-events: none;
+  animation: bgDrift 18s ease-in-out infinite alternate;
+}
+@keyframes bgDrift {
+  from { transform: scale(1.05) translate(0, 0); }
+  to { transform: scale(1.08) translate(-1.5%, 1%); }
+}
+.battle-bg-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, transparent 35%, #0b1a2acc 78%, #0b1a2af2 100%),
+    linear-gradient(180deg, #0b1a2a88 0%, transparent 18%, transparent 70%, #0b1a2add 100%);
+}
+.battle-screen > .battle-top,
+.battle-screen > .grid-wrap,
+.battle-screen > .battle-bar {
+  position: relative;
+  z-index: 1;
+}
+.battle-top {
+  text-shadow: 0 1px 3px #000c;
+  background: rgba(8, 18, 30, 0.45);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+.battle-bar {
+  background: rgba(18, 38, 58, 0.92);
+  backdrop-filter: blur(6px);
+}
+
+.skill-ready {
+  color: #f0d878;
+  font-size: 0.78rem;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #3a2a1088, #2a1a0888);
+  border: 1px solid #c9a22766;
+  animation: skillPulse 1.4s ease-in-out infinite;
+}
+@keyframes skillPulse {
+  0%, 100% { box-shadow: 0 0 0 0 #f0d87800; }
+  50% { box-shadow: 0 0 10px 0 #f0d87844; }
+}
+.btn.skill-ready-btn {
+  background: linear-gradient(135deg, #8a5a10, #e0c060);
+  border-color: #f0d878;
+  color: #1a1008;
+  font-weight: 800;
+  animation: skillPulse 1.4s ease-in-out infinite;
+}
+.skill-tag {
+  color: #f0d878;
+  font-size: 0.82rem;
+  margin: 4px 0;
+}
+
+/* —— 交鋒多段動畫 —— */
+.cutin-fighter.approach.atk { transform: translateX(-2px) scale(1.02); }
+.cutin-fighter.approach.def { transform: translateX(2px) scale(1.02); }
+.cutin-fighter.atk.lunge { transform: translateX(18px) scale(1.08) rotate(-2deg); }
+.cutin-fighter.def.hit { transform: translateX(12px) scale(0.94); filter: brightness(1.3); }
+.cutin-fighter.atk.hit { transform: translateX(-12px) scale(0.96); }
+
+.cutin-trail {
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  top: 48%;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, #fff8, transparent);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.cutin-trail.show {
+  animation: trailSweep 0.35s ease-out forwards;
+}
+@keyframes trailSweep {
+  0% { opacity: 0; transform: scaleX(0.2); }
+  40% { opacity: 0.9; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1.2); }
+}
+
+.cutin-slash {
+  position: absolute;
+  inset: 20% 15%;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+}
+.cutin-slash.slash-normal {
+  background: linear-gradient(135deg, transparent 42%, #fff 49%, #ffd700 51%, transparent 58%);
+  animation: slashArc 0.28s ease-out forwards;
+}
+.cutin-slash.slash-ulti {
+  background:
+    linear-gradient(125deg, transparent 40%, #ffe9a0 48%, #ff6b4a 52%, transparent 60%),
+    linear-gradient(55deg, transparent 42%, #fff 50%, transparent 58%);
+  animation: slashArc 0.38s ease-out forwards;
+}
+.cutin-slash.cast-heal {
+  background: radial-gradient(circle at 50% 50%, #4ec99acc, transparent 60%);
+  animation: castPulse 0.45s ease-out forwards;
+}
+.cutin-slash.cast-buff {
+  background: radial-gradient(circle at 50% 50%, #f0d878cc, transparent 60%);
+  animation: castPulse 0.45s ease-out forwards;
+}
+@keyframes slashArc {
+  0% { opacity: 0; transform: scale(0.6) rotate(-12deg); }
+  35% { opacity: 1; transform: scale(1.1) rotate(0deg); }
+  100% { opacity: 0; transform: scale(1.3) rotate(8deg); }
+}
+@keyframes castPulse {
+  0% { opacity: 0; transform: scale(0.4); }
+  40% { opacity: 0.95; transform: scale(1.05); }
+  100% { opacity: 0; transform: scale(1.4); }
+}
+
+.cutin-stage.shake {
+  animation: stageShake 0.35s ease-out;
+}
+@keyframes stageShake {
+  0%, 100% { transform: translate(0, 0); }
+  20% { transform: translate(-4px, 2px); }
+  40% { transform: translate(4px, -2px); }
+  60% { transform: translate(-3px, -1px); }
+  80% { transform: translate(2px, 2px); }
+}
+
+.cutin-pop.buff { color: #f0d878; }
+.cutin-overlay.tech .cutin-banner {
+  background: linear-gradient(90deg, transparent, #3a6a9a, #7eb8e8, #3a6a9a, transparent);
+  color: #061018;
+}
+.cutin-overlay.buff .cutin-banner {
+  background: linear-gradient(90deg, transparent, #8a6a10, #f0d878, #8a6a10, transparent);
+  color: #1a1208;
+}
+.cutin-fighter.tech {
+  box-shadow: 0 0 12px #7eb8e866, 0 8px 18px #0009;
+  border-color: #7eb8e8;
+}
+.cutin-hpbar i {
+  transition: width 0.55s ease-out;
+}
+
+.cutin-overlay.ultimate .cutin-stage {
+  box-shadow: inset 0 0 30px #f1c40f33, 0 0 20px #c0392b44;
 }
