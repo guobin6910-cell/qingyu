@@ -118,13 +118,18 @@ export function unitTokenHTML(unit, size = 36) {
   const color = tree.color;
   const isEnemy = unit.side === 'enemy';
   const stroke = isEnemy ? '#e05050' : color;
+  const team = isEnemy ? '#c0392b' : '#2a7fd4';
   const hpPct = Math.max(0, Math.round((unit.hp / Math.max(1, unit.maxHp)) * 100));
+  const hpColor = hpPct > 40 ? '#4ec99a' : '#e05050';
   const crown = unit.boss ? '★' : unit.hero ? '◆' : '';
+  const acted = unit.acted ? ' acted' : '';
   if (tok) {
-    return `<div class="unit-token" style="width:${size}px;height:${size}px;--ring:${stroke}">
+    return `<div class="unit-token${acted}" style="width:${size}px;height:${size}px;--ring:${stroke};--team:${team}">
+      <span class="tok-shadow"></span>
+      <span class="tok-base"></span>
       <img src="${tok}" alt="${unit.name}" draggable="false" />
       ${crown ? `<span class="crown">${crown}</span>` : ''}
-      <span class="hpbar"><i style="width:${hpPct}%"></i></span>
+      <span class="hpbar"><i style="width:${hpPct}%;background:${hpColor}"></i></span>
     </div>`;
   }
   return unitTokenSVG(unit, size);

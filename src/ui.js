@@ -12,6 +12,7 @@ import {
   createBattle, selectUnit, tryMove, trySkill, waitUnit,
   endPlayerPhase, terrainAt, unitAt, syncBattleToState,
   planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
+  computeAttackRange,
 } from './battle.js';
 import { ART, mapBackground, portraitFor, unitTokenHTML, terrainPattern, tileUrl } from './art.js';
 
@@ -291,7 +292,17 @@ function renderBattle() {
   screen = 'battle';
   if (!battle) return;
   const b = battle;
-  const cellSize = b.w >= 8 ? 40 : 44;
+  const cellSize = b.w >= 8 ? 42 : 48;
+
+  // 敵方威脅格（選中我軍時顯示）
+  const dangerSet = new Set();
+  if (b.phase === 'player' && !b.result) {
+    for (const e of b.units.filter((u) => u.side === 'enemy' && u.alive)) {
+      for (const c of computeAttackRange(b, e)) {
+        dangerSet.add(`${c.x},${c.y}`);
+      }
+    }
+  }
 
   let gridHtml = '';
   for (let y = 0; y < b.h; y++) {
@@ -301,25 +312,32 @@ function renderBattle() {
       const isMove = b.moveHint.some((c) => c.x === x && c.y === y);
       const isAtk = b.attackHint.some((c) => c.x === x && c.y === y);
       const sel = u && u.id === b.selected;
+      const isDanger = dangerSet.has(`${x},${y}`) && !isMove && !isAtk;
       const cls = [
         'cell',
         `tile-${ter.id}`,
         isMove ? 'move-hint' : '',
         isAtk ? 'atk-hint' : '',
+        isDanger ? 'danger-hint' : '',
         sel ? 'selected' : '',
+        ter.block ? 'blocked' : '',
       ].join(' ');
       const tex = tileUrl(ter.id);
+      const tokSize = Math.max(34, cellSize - 2);
       gridHtml += `<div class="${cls}" data-x="${x}" data-y="${y}"
         style="--tile:url('${tex}');background-color:${ter.color};width:${cellSize}px;height:${cellSize}px"
         title="${ter.name}">
+        <span class="tile-sculpt"></span>
         <span class="tile-label">${u ? '' : terrainPattern(ter.id)}</span>
-        ${u ? `<div class="tok" data-uid="${u.id}">${unitTokenHTML(u, cellSize - 4)}</div>` : ''}
+        ${u ? `<div class="tok" data-uid="${u.id}">${unitTokenHTML(u, tokSize)}</div>` : ''}
+        ${isMove && !u ? '<span class="move-foot"></span>' : ''}
       </div>`;
     }
   }
 
   const selU = b.units.find((u) => u.id === b.selected);
-  const phaseLabel = b.phase === 'player' ? '我軍' : '敵軍';
+  const phaseLabel = b.phase === 'player' ? '我軍回合' : '敵軍回合';
+  const phaseClass = b.phase === 'player' ? 'phase-player' : 'phase-enemy';
   const canSkill = selU && selU.skill && !selU.skill.used && b.mode === 'act';
   const skillBtnLabel = canSkill
     ? `${skillLabel(selU.skill)}·${selU.skill.name}`
@@ -329,43 +347,89 @@ function renderBattle() {
     : '';
 
   const bgUrl = mapBackground(b.mapDef.id);
+  const selPor = selU ? portraitFor(selU) : null;
+  const selCls = selU ? CLASSES[selU.classId] : null;
+  const selPanel = selU ? `
+    <div class="sel-panel ornate">
+      <div class="sel-portrait-wrap">
+        ${selPor ? `<img class="sel-portrait" src="${selPor}" alt="" />` : unitTokenHTML(selU, 56)}
+        <div class="sel-lv">Lv</div>
+      </div>
+      <div class="sel-body">
+        <div class="sel-name">${selU.name}</div>
+        <div class="sel-class">${selCls?.name || ''}</div>
+        <div class="sel-hpwrap">
+          <span>HP</span>
+          <div class="sel-bar hp"><i style="width:${Math.round(selU.hp / selU.maxHp * 100)}%"></i></div>
+          <em>${selU.hp}/${selU.maxHp}</em>
+        </div>
+        <div class="sel-stats">
+          <span>攻 ${selU.atk}</span><span>防 ${selU.def}</span>
+          <span>術 ${selU.mag}</span><span>移 ${selU.move}</span>
+        </div>
+      </div>
+    </div>` : `
+    <div class="sel-panel ornate empty">
+      <div class="sel-hint">點選我軍單位<br/>移動 → 攻擊／待機</div>
+    </div>`;
+
+  const party = b.units.filter((u) => u.side === 'player' && u.alive);
+  const partyHtml = party.map((u) => {
+    const por = portraitFor(u);
+    const active = u.id === b.selected ? 'active' : '';
+    const done = u.acted ? 'done' : '';
+    const pct = Math.round(u.hp / u.maxHp * 100);
+    return `<button type="button" class="party-chip ${active} ${done}" data-pid="${u.id}">
+      ${por ? `<img src="${por}" alt="" />` : `<span class="chip-fallback">${u.name.slice(0, 1)}</span>`}
+      <span class="chip-name">${u.name.slice(0, 2)}</span>
+      <span class="chip-hp"><i style="width:${pct}%"></i></span>
+    </button>`;
+  }).join('');
+
   app.innerHTML = `
-  <div class="screen battle-screen">
+  <div class="screen battle-screen gorgeous">
     <div class="battle-bg" style="background-image:url('${bgUrl}')"></div>
     <div class="battle-bg-vignette"></div>
-    <div class="battle-top">
-      <strong>${b.mapDef.name}</strong>
-      <span>T${b.turn} · ${phaseLabel}</span>
-      <span class="gold">${state.gold}金</span>
+    <div class="battle-top ornate-bar">
+      <div class="turn-badge">T${b.turn}</div>
+      <div class="faction-tag">青嶼義軍</div>
+      <div class="turn-banner ${phaseClass}"><span>${phaseLabel}</span></div>
+      <span class="gold coin-badge">${state.gold}金</span>
     </div>
-    <div class="grid-wrap" style="position:relative">
-      <div class="grid" style="grid-template-columns:repeat(${b.w}, ${cellSize}px)">
-        ${gridHtml}
+    <div class="battle-mid">
+      <div class="grid-wrap" style="position:relative">
+        <div class="grid ornate-grid" style="grid-template-columns:repeat(${b.w}, ${cellSize}px)">
+          ${gridHtml}
+        </div>
       </div>
+      <div class="party-rail">${partyHtml}</div>
     </div>
-    <div class="battle-bar">
-      <div class="muted" style="margin-bottom:4px">
-        ${selU ? `${selU.name}（${CLASSES[selU.classId].name}）HP ${selU.hp}/${selU.maxHp}` : '點選我軍單位 → 移動 → 攻擊／待機'}
-      </div>
+    <div class="battle-bar ornate-bar">
+      ${selPanel}
       ${skillTip}
-      <div class="actions">
-        <button class="btn small" id="btn-wait" ${selU && (b.mode === 'act' || b.mode === 'move') ? '' : 'disabled'}>待機</button>
-        <button class="btn small ${canSkill ? 'skill-ready-btn' : ''}" id="btn-skill" ${canSkill ? '' : 'disabled'}>${skillBtnLabel}</button>
-        <button class="btn small" id="btn-end" ${b.phase === 'player' && !b.result ? '' : 'disabled'}>結束回合</button>
-        <button class="btn small ghost" id="btn-flee">撤退</button>
+      <div class="cmd-menu">
+        <button class="cmd-btn" id="btn-wait" ${selU && (b.mode === 'act' || b.mode === 'move') ? '' : 'disabled'}>待機</button>
+        <button class="cmd-btn ${canSkill ? 'skill-ready-btn' : ''}" id="btn-skill" ${canSkill ? '' : 'disabled'}>${skillBtnLabel}</button>
+        <button class="cmd-btn" id="btn-end" ${b.phase === 'player' && !b.result ? '' : 'disabled'}>結束回合</button>
+        <button class="cmd-btn ghost" id="btn-flee">撤退</button>
       </div>
-      <div class="battle-log">${b.log.slice(-5).map((l) => `<div>${l}</div>`).join('')}</div>
+      <div class="battle-log">${b.log.slice(-4).map((l) => `<div>${l}</div>`).join('')}</div>
     </div>
   </div>`;
 
-  // floats
-  for (const f of b.floats.slice(-8)) {
-    // approximate positions skipped in DOM rebuild; show toast-like in log already
-  }
   b.floats = [];
 
   app.querySelectorAll('.cell').forEach((el) => {
     el.onclick = () => onCellClick(+el.dataset.x, +el.dataset.y);
+  });
+  app.querySelectorAll('.party-chip').forEach((el) => {
+    el.onclick = () => {
+      const u = b.units.find((x) => x.id === el.dataset.pid);
+      if (u && !u.acted && b.phase === 'player' && !b.result) {
+        selectUnit(b, u);
+        renderBattle();
+      }
+    };
   });
   app.querySelector('#btn-wait').onclick = () => {
     if (waitUnit(b)) afterPlayerAction();
@@ -378,7 +442,6 @@ function renderBattle() {
       renderBattle();
       return;
     }
-    // heal / buff skill → cut-in then commit
     playGridLunge(b.selected, null, () => {
       showBattleCutIn(plan, () => {
         commitAttackPlan(b, plan);
@@ -693,14 +756,19 @@ function showBattleCutIn(plan, onDone) {
 
   const overlay = document.createElement('div');
   overlay.className = `cutin-overlay ${vfxClass}`;
+  const sparkles = Array.from({ length: 14 }, (_, i) =>
+    `<i class="spark" style="--i:${i};--x:${8 + (i * 6.5) % 84}%;--y:${12 + (i * 11) % 70}%;--d:${0.1 + (i % 5) * 0.08}s"></i>`
+  ).join('');
   overlay.innerHTML = `
     <div class="cutin-dim" style="background-image:linear-gradient(180deg,#0b1a2acc,#0b1a2af2),url('${bg}')"></div>
-    <div class="cutin-frame">
+    <div class="cutin-particles">${sparkles}</div>
+    <div class="cutin-frame ornate-cutin">
       <div class="cutin-banner">${title}</div>
       <div class="cutin-cols">
         ${cutinSideHTML(plan.attacker, 'left')}
         <div class="cutin-stage">
           <div class="cutin-trail"></div>
+          <div class="cutin-arc"></div>
           <div class="cutin-fighter atk ${ultimate ? 'ulti' : ''} ${isTech ? 'tech' : ''}">
             ${atkPor ? `<img src="${atkPor}" alt="" />` : unitTokenHTML({ ...plan.attacker, alive: true }, 72)}
           </div>
@@ -710,6 +778,7 @@ function showBattleCutIn(plan, onDone) {
           </div>
           <div class="cutin-slash"></div>
           <div class="cutin-flash"></div>
+          <div class="cutin-ring"></div>
           <div class="cutin-pop" hidden></div>
         </div>
         ${cutinSideHTML(plan.defender, 'right')}
@@ -744,6 +813,18 @@ function showBattleCutIn(plan, onDone) {
 
   requestAnimationFrame(() => overlay.classList.add('in'));
 
+  const arc = overlay.querySelector('.cutin-arc');
+  const ring = overlay.querySelector('.cutin-ring');
+  const leftPanel = overlay.querySelector('.cutin-panel.left');
+  const rightPanel = overlay.querySelector('.cutin-panel.right');
+
+  // 0) portrait punch-in
+  later(() => {
+    leftPanel?.classList.add('punch');
+    rightPanel?.classList.add('punch');
+    overlay.classList.add('sparks-on');
+  }, 40);
+
   // 1) approach
   later(() => {
     fighterAtk.classList.add('approach');
@@ -755,6 +836,7 @@ function showBattleCutIn(plan, onDone) {
   later(() => {
     fighterAtk.classList.add('lunge');
     slash.classList.add(isHeal ? 'cast-heal' : isBuff ? 'cast-buff' : ultimate ? 'slash-ulti' : 'slash-normal');
+    if (arc) arc.classList.add(isHeal || isBuff ? 'arc-cast' : 'arc-slash');
   }, 320);
 
   // 3) impact shake + flash
@@ -762,6 +844,7 @@ function showBattleCutIn(plan, onDone) {
     fighterDef.classList.add('hit');
     flash.classList.add('boom');
     stage.classList.add('shake');
+    if (ring) ring.classList.add('burst');
     if (ultimate) overlay.classList.add('ulti-flash');
 
     if (isBuff) {
