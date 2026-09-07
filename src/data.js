@@ -216,8 +216,8 @@ export const RECRUIT_CANDIDATE = {
 };
 
 /**
- * 地圖定義
- * grid: 字串列，字元對應地形
+ * 地圖定義（六角 odd-r）
+ * grid: 字串列，字元對應地形；每列為 hex row
  * P=plain H=hill F=forest W=wall S=ford V=village $=shop *=secret B=harbor
  */
 const TMAP = {
@@ -229,30 +229,32 @@ export function parseGrid(rows) {
   return rows.map((row) => [...row].map((ch) => TMAP[ch] || 'plain'));
 }
 
+/** 六角盤（odd-r）：同一敘事節拍——村／山／港 */
 export const MAPS = [
   {
     id: 'm1_tutorial',
     name: '村外草徑',
     chapter: 1,
     index: 0,
-    brief: '蘇家村外——先熟悉步法與攻擊。村落裡也許有人願意同行。',
+    brief: '蘇家村外——先熟悉六角步法與攻擊。村落裡也許有人願意同行。',
     objective: '擊破全部敵人',
     hiddenHint: '踏上村落格可招募同伴；遺跡格藏有功勳。',
+    hex: true,
     grid: parseGrid([
-      'PPPPPPPP',
-      'PPFVPPHP',
-      'PPFFPPPP',
-      'PPPPPPPP',
-      'PHPPPFPP',
-      'PPPP*PPP',
-      'PPPPPPPP',
-      'PPPPPPPP',
+      'PPPPPPP',
+      'PFVPPHP',
+      'PFFPPPP',
+      'PPPPFPP',
+      'PHPPPFP',
+      'PPP*PPP',
+      'PPPPPPP',
+      'PPPPPPP',
     ]),
     playerStarts: [[1, 6], [2, 6], [3, 6]],
     enemies: [
       { name: '流寇', classId: 'dao_wei', pos: [5, 2], ai: 'aggro', hpMul: 0.7 },
-      { name: '流寇弓', classId: 'gang_lie', pos: [6, 3], ai: 'hold', hpMul: 0.65 },
-      { name: '流寇', classId: 'dao_wei', pos: [4, 2], ai: 'hold', hpMul: 0.7 },
+      { name: '流寇弓', classId: 'gang_lie', pos: [5, 3], ai: 'hold', hpMul: 0.65 },
+      { name: '流寇', classId: 'dao_wei', pos: [4, 1], ai: 'hold', hpMul: 0.7 },
     ],
     winGold: 80,
     winMerit: 1,
@@ -266,22 +268,23 @@ export const MAPS = [
     index: 1,
     brief: '山路狹窄，善用山地防禦。隘口另一側有商鋪殘跡。',
     objective: '擊破全部敵人',
+    hex: true,
     grid: parseGrid([
-      'WHHHHWWW',
-      'WPPHHHWW',
-      'WPFFH$HW',
-      'WPPFHPHW',
-      'WPPPPPHW',
-      'WHFPPPHW',
-      'WHHPPPPW',
-      'WWWWWWWW',
+      'WHHHHWW',
+      'WPHHHWW',
+      'WPFF$HW',
+      'WPPFHFW',
+      'WPPPPHW',
+      'WHFPPPW',
+      'WHHPPPW',
+      'WWWWWWW',
     ]),
     playerStarts: [[2, 6], [3, 6], [4, 6], [1, 5]],
     enemies: [
       { name: '山賊槍', classId: 'po_zhen', pos: [3, 2], ai: 'aggro' },
-      { name: '山賊弓', classId: 'ji_yu', pos: [5, 2], ai: 'hold' },
+      { name: '山賊弓', classId: 'ji_yu', pos: [4, 2], ai: 'hold' },
       { name: '山賊', classId: 'tie_dun', pos: [2, 3], ai: 'aggro' },
-      { name: '山賊咒', classId: 'wu_zhou', pos: [4, 1], ai: 'hold' },
+      { name: '山賊咒', classId: 'wu_zhou', pos: [3, 1], ai: 'hold' },
     ],
     winGold: 120,
     winMerit: 1,
@@ -295,21 +298,22 @@ export const MAPS = [
     brief: '奪回碼頭。若林青川已達功勳巅峰並完成遺跡試煉，或可覺醒守護之力。',
     objective: '擊破敵將',
     bossKill: true,
+    hex: true,
     grid: parseGrid([
-      'BBBBSSPP',
-      'BPPPSSPP',
-      'BPPPPPFP',
-      'PPHPPPFP',
-      'PPHHPPPP',
-      'PPPPPFPP',
-      'PPFPPPSP',
-      'PPPPPPSP',
+      'BBBSSPP',
+      'BPPSSPP',
+      'BPPPPFP',
+      'PPHPPFP',
+      'PPHPPPP',
+      'PPPPFPP',
+      'PFPPPSP',
+      'PPPPPSP',
     ]),
     playerStarts: [[1, 7], [2, 7], [3, 7], [4, 7]],
     enemies: [
       { name: '港匪', classId: 'po_zhen', pos: [2, 3], ai: 'aggro' },
       { name: '港匪弓', classId: 'chuan_yun', pos: [5, 2], ai: 'hold' },
-      { name: '港匪術', classId: 'lan_fa', pos: [6, 1], ai: 'hold' },
+      { name: '港匪術', classId: 'lan_fa', pos: [5, 1], ai: 'hold' },
       { name: '匪首阿魁', classId: 'lie_jia', pos: [3, 1], ai: 'aggro', boss: true, hpMul: 1.4 },
     ],
     winGold: 200,

@@ -4,7 +4,8 @@ import {
   newGame, saveGame, loadGame, grantMerit, promote, canPromote,
   transferTree, applyBattleRewards, recruitHaiNing, restRoster,
 } from "./src/state.js";
-import { createBattle, autoPlayBattle, syncBattleToState } from "./src/battle.js";
+import { createBattle, autoPlayBattle, syncBattleToState, computeMoveRange } from "./src/battle.js";
+import { hexDistance, hexNeighbors } from "./src/hex.js";
 
 const mem = {};
 const storage = {
@@ -135,6 +136,19 @@ check(r3.every((c) => c.skill && c.skill.tier === "ulti"), "all Rank3 have ulti 
   check(rSkill === "win", `skill-map1 auto-clear (${rSkill})`);
   const used = bSkill.units.filter((u) => u.side === "player" && u.skill?.used);
   check(used.length >= 1, `at least one 戰技 used in battle (${used.length})`);
+}
+
+
+// —— hex engine ——
+{
+  check(MAPS.every((m) => m.hex === true), "all maps marked hex");
+  check(hexDistance(0, 0, 1, 0) === 1, "hex adjacent distance 1");
+  check(hexNeighbors(2, 2).length === 6, "hex has 6 neighbors");
+  const bHex = createBattle(newGame(), MAPS[0]);
+  const p0 = bHex.units.find((u) => u.side === "player");
+  const cells = computeMoveRange(bHex, p0);
+  check(cells.length >= 5, `hex move range nonempty (${cells.length})`);
+  check(cells.every((c) => Number.isFinite(c.cost)), "move cells have cost");
 }
 
 console.log("\n—— summary ——");

@@ -15,6 +15,7 @@ import {
   computeAttackRange,
 } from './battle.js';
 import { ART, mapBackground, boardFor, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
+import { hexToPixel, hexBoardSize, hexPolygonPoints } from './hex.js';
 
 let app, state, screen, battle, hubTab = 'mission', toastTimer;
 
@@ -292,11 +293,11 @@ function renderBattle() {
   screen = 'battle';
   if (!battle) return;
   const b = battle;
-  const cellSize = b.w >= 8 ? 44 : 50;
-  const boardW = b.w * cellSize;
-  const boardH = b.h * cellSize;
+  const hexSize = b.w >= 8 ? 26 : 28;
+  const { width: boardW, height: boardH, cellW, cellH } = hexBoardSize(b.w, b.h, hexSize);
+  const poly = hexPolygonPoints(hexSize - 0.8);
 
-  // 敵方威脅格（選中我軍時顯示）
+  // 敵方威脅格
   const dangerSet = new Set();
   if (b.phase === 'player' && !b.result) {
     for (const e of b.units.filter((u) => u.side === 'enemy' && u.alive)) {
@@ -316,8 +317,11 @@ function renderBattle() {
       const sel = u && u.id === b.selected;
       const isDanger = dangerSet.has(`${x},${y}`) && !isMove && !isAtk;
       const badge = (!u && ter && !ter.block && terrainPattern(ter.id)) ? terrainPattern(ter.id) : '';
+      const { px, py } = hexToPixel(x, y, hexSize);
+      const left = px - cellW / 2;
+      const top = py - cellH / 2;
       const cls = [
-        'cell',
+        'cell hex-cell',
         `tile-${ter.id}`,
         isMove ? 'move-hint' : '',
         isAtk ? 'atk-hint' : '',
@@ -325,10 +329,13 @@ function renderBattle() {
         sel ? 'selected' : '',
         ter.block ? 'blocked' : '',
       ].join(' ');
-      const tokSize = Math.max(36, cellSize - 4);
+      const tokSize = Math.max(40, Math.round(hexSize * 1.55));
       gridHtml += `<div class="${cls}" data-x="${x}" data-y="${y}"
-        style="width:${cellSize}px;height:${cellSize}px"
+        style="left:${left}px;top:${top}px;width:${cellW}px;height:${cellH}px"
         title="${ter.name}">
+        <svg class="hex-shape" viewBox="${(-cellW/2).toFixed(2)} ${(-cellH/2).toFixed(2)} ${cellW.toFixed(2)} ${cellH.toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">
+          <polygon points="${poly}" />
+        </svg>
         ${badge ? `<span class="tile-badge">${badge}</span>` : ''}
         ${u ? `<div class="tok" data-uid="${u.id}">${unitTokenHTML(u, tokSize)}</div>` : ''}
         ${isMove && !u ? '<span class="move-foot"></span>' : ''}
@@ -339,10 +346,10 @@ function renderBattle() {
   const selU = b.units.find((u) => u.id === b.selected);
   const phaseLabel = b.phase === 'player' ? '我軍回合' : '敵軍回合';
   const phaseClass = b.phase === 'player' ? 'phase-player' : 'phase-enemy';
+  const canMove = selU && b.mode === 'move' && !selU.moved;
+  const canAttack = selU && (b.mode === 'act' || b.mode === 'skill');
   const canSkill = selU && selU.skill && !selU.skill.used && b.mode === 'act';
-  const skillBtnLabel = canSkill
-    ? `${skillLabel(selU.skill)}·${selU.skill.name}`
-    : (selU?.skill?.used ? '已用完' : '戰技／必殺');
+  const canWait = selU && (b.mode === 'act' || b.mode === 'move');
   const skillTip = canSkill
     ? `<div class="skill-ready">✦ 可發動${skillLabel(selU.skill)}【${selU.skill.name}】— ${selU.skill.desc}</div>`
     : '';
@@ -351,11 +358,13 @@ function renderBattle() {
   const boardUrl = boardFor(b.mapDef.id);
   const selPor = selU ? portraitFor(selU) : null;
   const selCls = selU ? CLASSES[selU.classId] : null;
+  const skillList = selU?.skill
+    ? `<div class="sel-skills"><div class="sel-skill ${selU.skill.used ? 'used' : 'ready'}"><i></i><span>${skillLabel(selU.skill)} ${selU.skill.name}</span></div></div>`
+    : `<div class="sel-skills muted">尚無戰技</div>`;
   const selPanel = selU ? `
     <div class="sel-panel ornate">
       <div class="sel-portrait-wrap">
-        ${selPor ? `<img class="sel-portrait" src="${selPor}" alt="" />` : unitTokenHTML(selU, 56)}
-        <div class="sel-lv">Lv</div>
+        ${selPor ? `<img class="sel-portrait" src="${selPor}" alt="" />` : unitTokenHTML(selU, 64)}
       </div>
       <div class="sel-body">
         <div class="sel-name">${selU.name}</div>
@@ -366,13 +375,14 @@ function renderBattle() {
           <em>${selU.hp}/${selU.maxHp}</em>
         </div>
         <div class="sel-stats">
-          <span>攻 ${selU.atk}</span><span>防 ${selU.def}</span>
-          <span>術 ${selU.mag}</span><span>移 ${selU.move}</span>
+          <span>ATK ${selU.atk}</span><span>DEF ${selU.def}</span>
+          <span>MAG ${selU.mag}</span><span>MOV ${selU.move}</span>
         </div>
+        ${skillList}
       </div>
     </div>` : `
     <div class="sel-panel ornate empty">
-      <div class="sel-hint">點選我軍單位<br/>移動 → 攻擊／待機</div>
+      <div class="sel-hint">點選我軍單位<br/>移動 → 攻擊／技能／待機</div>
     </div>`;
 
   const party = b.units.filter((u) => u.side === 'player' && u.alive);
@@ -383,43 +393,53 @@ function renderBattle() {
     const pct = Math.round(u.hp / u.maxHp * 100);
     return `<button type="button" class="party-chip ${active} ${done}" data-pid="${u.id}">
       ${por ? `<img src="${por}" alt="" />` : `<span class="chip-fallback">${u.name.slice(0, 1)}</span>`}
-      <span class="chip-name">${u.name.slice(0, 2)}</span>
-      <span class="chip-hp"><i style="width:${pct}%"></i></span>
+      <span class="chip-meta"><span class="chip-name">${u.name}</span>
+      <span class="chip-hp"><i style="width:${pct}%"></i></span></span>
     </button>`;
   }).join('');
 
+  const modeMove = b.mode === 'move' ? 'lit' : '';
+  const modeAtk = (b.mode === 'act' || b.mode === 'skill') ? 'lit' : '';
+  const modeSkill = b.mode === 'skill' || canSkill ? 'lit skill-ready-btn' : '';
+
   app.innerHTML = `
-  <div class="screen battle-screen gorgeous eoa-board">
+  <div class="screen battle-screen gorgeous eoa-board hex-board">
     <div class="battle-bg" style="background-image:url('${bgUrl}')"></div>
     <div class="battle-bg-vignette"></div>
     <div class="battle-top ornate-bar">
-      <div class="turn-badge">T${b.turn}</div>
+      <div class="turn-badge">回合 ${b.turn}</div>
       <div class="faction-tag">青嶼義軍</div>
       <div class="turn-banner ${phaseClass}"><span>${phaseLabel}</span></div>
       <span class="gold coin-badge">${state.gold}金</span>
     </div>
-    <div class="battle-mid">
+    <div class="battle-mid hex-mid">
       <div class="grid-wrap" style="position:relative">
         <div class="board-stage" style="width:${boardW}px;height:${boardH}px;--board:url('${boardUrl}')">
           <div class="board-art" aria-hidden="true"></div>
-          <div class="grid continuous-grid" style="grid-template-columns:repeat(${b.w}, ${cellSize}px);width:${boardW}px;height:${boardH}px">
+          <div class="grid hex-grid continuous-grid" style="width:${boardW}px;height:${boardH}px">
             ${gridHtml}
           </div>
         </div>
       </div>
-      <div class="party-rail">${partyHtml}</div>
+      <div class="party-rail vertical-rail">${partyHtml}</div>
     </div>
-    <div class="battle-bar ornate-bar">
+    <div class="battle-bar ornate-bar eoa-bar">
       <div class="map-loc">—— ${b.mapDef.name} ——</div>
-      ${selPanel}
+      <div class="eoa-bottom">
+        ${selPanel}
+        <div class="cmd-stack">
+          <button class="cmd-btn stack ${modeMove}" id="btn-move" ${canMove || (selU && b.mode === 'move') ? '' : 'disabled'}>移動</button>
+          <button class="cmd-btn stack ${modeAtk}" id="btn-attack" ${canAttack ? '' : 'disabled'}>攻擊</button>
+          <button class="cmd-btn stack ${modeSkill}" id="btn-skill" ${canSkill || b.mode === 'skill' ? '' : 'disabled'}>技能</button>
+          <button class="cmd-btn stack" id="btn-wait" ${canWait ? '' : 'disabled'}>待機</button>
+        </div>
+      </div>
       ${skillTip}
-      <div class="cmd-menu">
-        <button class="cmd-btn" id="btn-wait" ${selU && (b.mode === 'act' || b.mode === 'move') ? '' : 'disabled'}>待機</button>
-        <button class="cmd-btn ${canSkill ? 'skill-ready-btn' : ''}" id="btn-skill" ${canSkill ? '' : 'disabled'}>${skillBtnLabel}</button>
+      <div class="cmd-menu secondary">
         <button class="cmd-btn" id="btn-end" ${b.phase === 'player' && !b.result ? '' : 'disabled'}>結束回合</button>
         <button class="cmd-btn ghost" id="btn-flee">撤退</button>
       </div>
-      <div class="battle-log">${b.log.slice(-4).map((l) => `<div>${l}</div>`).join('')}</div>
+      <div class="battle-log">${b.log.slice(-3).map((l) => `<div>${l}</div>`).join('')}</div>
     </div>
   </div>`;
 
@@ -437,14 +457,42 @@ function renderBattle() {
       }
     };
   });
+  const btnMove = app.querySelector('#btn-move');
+  if (btnMove) btnMove.onclick = () => {
+    if (!selU || selU.acted) return;
+    selectUnit(b, selU);
+    renderBattle();
+  };
+  const btnAtk = app.querySelector('#btn-attack');
+  if (btnAtk) btnAtk.onclick = () => {
+    if (!selU) return;
+    if (b.mode === 'move') {
+      selU.moved = true;
+      b.mode = 'act';
+      b.moveHint = [];
+      b.attackHint = computeAttackRange(b, selU);
+      renderBattle();
+      return;
+    }
+    if (b.mode === 'act' || b.mode === 'skill') {
+      b.mode = 'act';
+      b.attackHint = computeAttackRange(b, selU);
+      renderBattle();
+    }
+  };
   app.querySelector('#btn-wait').onclick = () => {
     if (waitUnit(b)) afterPlayerAction();
   };
   app.querySelector('#btn-skill').onclick = () => {
+    if (b.mode === 'move' && selU) {
+      selU.moved = true;
+      b.mode = 'act';
+      b.moveHint = [];
+    }
     const plan = trySkill(b);
     if (!plan) return;
     if (plan.kind === 'aim') {
-      toast('選擇目標發動戰技／必殺');
+      toast('選擇目標發動技能');
       renderBattle();
       return;
     }

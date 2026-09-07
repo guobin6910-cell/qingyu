@@ -1,4 +1,4 @@
-/** 美術資源與單位標記 — 連續地圖＋Q版全身立繪（致敬經典台製 SRPG 呈現，原創資產） */
+/** 美術資源與單位標記 — 連續手繪六角盤＋高細節 Q 版全身立繪（致敬經典台製 SRPG 呈現，原創資產） */
 import { TREES, CLASSES } from './data.js';
 
 import coverUrl from './assets/art/cover.jpg';
@@ -121,10 +121,11 @@ export function unitTokenHTML(unit, size = 44) {
   const hpColor = hpPct > 40 ? '#4ec99a' : '#e05050';
   const crown = unit.boss ? '★' : unit.hero ? '◆' : '';
   const acted = unit.acted ? ' acted' : '';
-  const h = Math.round(size * 1.35);
+  const h = Math.round(size * 1.4);
   if (spr) {
     return `<div class="unit-sprite${acted}" style="width:${size}px;height:${h}px;--ring:${stroke};--team:${team}">
       <span class="spr-shadow"></span>
+      <span class="spr-ring" aria-hidden="true"></span>
       <img src="${spr}" alt="${unit.name}" draggable="false" />
       ${crown ? `<span class="crown">${crown}</span>` : ''}
       <span class="hpbar"><i style="width:${hpPct}%;background:${hpColor}"></i></span>

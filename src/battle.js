@@ -1,7 +1,6 @@
-/** 格子戰術戰鬥引擎 */
+/** 六角戰術戰鬥引擎（odd-r pointy-top hex） */
 import { TERRAIN, CLASSES, TREES } from './data.js';
-
-const DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+import { hexNeighbors, hexDistance } from './hex.js';
 
 export function createBattle(state, mapDef) {
   const h = mapDef.grid.length;
@@ -117,9 +116,7 @@ export function computeMoveRange(battle, unit) {
   const q = [[unit.x, unit.y]];
   while (q.length) {
     const [x, y] = q.shift();
-    for (const [dx, dy] of DIRS) {
-      const nx = x + dx;
-      const ny = y + dy;
+    for (const [nx, ny] of hexNeighbors(x, y)) {
       if (!inBounds(battle, nx, ny)) continue;
       const t = terrainAt(battle, nx, ny);
       if (!t || t.block || t.move >= 99) continue;
@@ -149,14 +146,16 @@ export function computeMoveRange(battle, unit) {
 }
 
 export function manhattan(x1, y1, x2, y2) {
-  return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+  return hexDistance(x1, y1, x2, y2);
 }
+
+export { hexDistance };
 
 export function computeAttackRange(battle, unit, fromX = unit.x, fromY = unit.y) {
   const cells = [];
   for (let y = 0; y < battle.h; y++) {
     for (let x = 0; x < battle.w; x++) {
-      const d = manhattan(fromX, fromY, x, y);
+      const d = hexDistance(fromX, fromY, x, y);
       if (d >= 1 && d <= unit.range) cells.push({ x, y });
     }
   }

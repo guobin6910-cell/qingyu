@@ -1529,3 +1529,260 @@ h2 { font-size: 1.2rem; color: var(--accent); }
 @media (max-width: 380px) {
   .battle-screen.eoa-board .cell { border-color: rgba(255,255,255,0.12); }
 }
+
+/* —— 六角盤呈現（致敬經典台製 SRPG・原創） —— */
+.battle-screen.hex-board .hex-mid {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 6px;
+  min-height: 0;
+}
+.battle-screen.hex-board .grid-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 4px 0;
+}
+.battle-screen.hex-board .party-rail.vertical-rail {
+  flex-direction: column;
+  width: 72px;
+  flex-shrink: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 100%;
+  padding: 4px 2px;
+  gap: 6px;
+  background: linear-gradient(180deg, #3a2a1488, #1a1208cc);
+  border: 1.5px solid #c9a22788;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 #ffe9a033;
+}
+.battle-screen.hex-board .party-chip {
+  width: 100%;
+  flex-direction: row;
+  gap: 4px;
+  padding: 4px;
+  align-items: center;
+}
+.battle-screen.hex-board .party-chip img,
+.battle-screen.hex-board .party-chip .chip-fallback {
+  width: 32px; height: 32px; flex-shrink: 0;
+}
+.battle-screen.hex-board .party-chip .chip-meta {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1;
+}
+.battle-screen.hex-board .party-chip .chip-name {
+  font-size: 0.58rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  width: 100%; text-align: left;
+}
+.battle-screen.hex-board .party-chip .chip-hp { width: 100%; }
+
+.hex-grid.continuous-grid {
+  display: block !important;
+  position: relative;
+  background: transparent !important;
+  gap: 0 !important;
+  border: none !important;
+}
+.hex-cell {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  overflow: visible;
+  cursor: pointer;
+  z-index: 1;
+}
+.hex-cell .hex-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+.hex-cell .hex-shape polygon {
+  fill: rgba(10, 30, 50, 0.08);
+  stroke: rgba(20, 40, 60, 0.38);
+  stroke-width: 1.1;
+  transition: fill 0.12s, stroke 0.12s;
+}
+.hex-cell.blocked .hex-shape polygon {
+  fill: rgba(20, 20, 20, 0.45);
+  stroke: rgba(60, 60, 60, 0.5);
+}
+.hex-cell.move-hint .hex-shape polygon {
+  fill: rgba(80, 210, 255, 0.38);
+  stroke: rgba(120, 230, 255, 0.85);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 4px rgba(80, 210, 255, 0.55));
+}
+.hex-cell.atk-hint .hex-shape polygon {
+  fill: rgba(255, 90, 70, 0.32);
+  stroke: rgba(255, 140, 100, 0.8);
+  stroke-width: 1.5;
+}
+.hex-cell.danger-hint .hex-shape polygon {
+  fill: rgba(200, 40, 40, 0.22);
+  stroke: rgba(220, 80, 80, 0.45);
+}
+.hex-cell.selected .hex-shape polygon {
+  fill: rgba(255, 210, 60, 0.28);
+  stroke: #ffd700;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 6px rgba(255, 215, 0, 0.7));
+}
+.hex-cell::before,
+.hex-cell::after { display: none !important; }
+.battle-screen.hex-board .hex-cell .tok {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 10%;
+  transform: none;
+}
+.battle-screen.hex-board .hex-cell .tok .unit-sprite {
+  filter: drop-shadow(0 2px 3px #000a);
+}
+.battle-screen.hex-board .hex-cell.selected::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 14%;
+  width: 62%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(255, 215, 0, 0.75), transparent 70%);
+  box-shadow: 0 0 10px #ffd700aa;
+  z-index: 1;
+  pointer-events: none;
+}
+.battle-screen.hex-board .hex-cell .move-foot {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: rgba(120, 230, 255, 0.85);
+  box-shadow: 0 0 8px #7ef;
+  z-index: 1;
+  bottom: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.battle-screen.hex-board .hex-cell .tile-badge {
+  position: absolute;
+  top: 18%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.55rem;
+  color: #ffe9a0cc;
+  text-shadow: 0 1px 2px #000c;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.eoa-bottom {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.eoa-bottom .sel-panel { flex: 1; min-width: 0; margin-bottom: 0; }
+.cmd-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 76px;
+  flex-shrink: 0;
+}
+.cmd-btn.stack {
+  padding: 10px 4px;
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+}
+.cmd-btn.stack.lit {
+  border-color: #7ec8ff;
+  box-shadow: inset 0 0 10px #2a7fd455, 0 0 8px #2a7fd444;
+}
+.cmd-menu.secondary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 6px;
+}
+.sel-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+.sel-skill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.68rem;
+  color: #e8d090;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #0a152088;
+  border: 1px solid #c9a22755;
+}
+.sel-skill i {
+  width: 10px; height: 10px; border-radius: 2px;
+  background: linear-gradient(135deg, #ffe9a0, #c9a227);
+  flex-shrink: 0;
+}
+.sel-skill.used { opacity: 0.45; filter: grayscale(0.5); }
+.sel-skill.ready { border-color: #7ec8ff88; color: #cdefff; }
+
+.battle-screen.hex-board .sel-portrait {
+  width: 72px; height: 90px;
+}
+.battle-screen.hex-board .sel-portrait-wrap { width: 72px; }
+
+.battle-screen.hex-board .unit-sprite .hpbar {
+  height: 4px;
+  border-radius: 2px;
+  background: #1a1010ee;
+  border: 1px solid #0008;
+}
+.battle-screen.hex-board .board-art {
+  filter: saturate(1.12) contrast(1.04) brightness(0.96);
+}
+
+@media (max-width: 400px) {
+  .battle-screen.hex-board .party-rail.vertical-rail { width: 58px; }
+  .cmd-stack { width: 64px; }
+  .battle-screen.hex-board .sel-portrait { width: 56px; height: 72px; }
+  .battle-screen.hex-board .sel-portrait-wrap { width: 56px; }
+  .cmd-btn.stack { font-size: 0.72rem; padding: 8px 2px; }
+}
+.unit-sprite .spr-ring {
+  position: absolute;
+  left: 50%; bottom: 2%;
+  width: 70%; height: 14%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: 2px solid var(--ring, #ffd700);
+  box-shadow: 0 0 6px var(--ring, #ffd70088);
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: 0;
+}
+.hex-cell.selected .unit-sprite .spr-ring {
+  opacity: 1;
+  border-color: #ffd700;
+  box-shadow: 0 0 10px #ffd700cc;
+}
