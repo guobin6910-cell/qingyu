@@ -1786,3 +1786,59 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   border-color: #ffd700;
   box-shadow: 0 0 10px #ffd700cc;
 }
+
+/* —— 玩家浮島圖：圖面已含六角線 → 互動層僅半透明填色 —— */
+.battle-screen.painted-grid .board-art.island-art {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-color: #5a9fd4;
+  filter: saturate(1.06) contrast(1.02) brightness(1.0);
+}
+.battle-screen.painted-grid .board-art.island-art::after {
+  background:
+    radial-gradient(ellipse at 50% 48%, transparent 62%, rgba(8,20,36,0.18) 100%);
+}
+.battle-screen.painted-grid .hex-cell .hex-shape polygon {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 0;
+  filter: none;
+}
+.battle-screen.painted-grid .hex-cell.blocked .hex-shape polygon {
+  fill: rgba(12, 18, 28, 0.38);
+  stroke: transparent;
+}
+.battle-screen.painted-grid .hex-cell.move-hint .hex-shape polygon {
+  fill: rgba(80, 210, 255, 0.34);
+  stroke: transparent;
+  stroke-width: 0;
+  filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.4));
+}
+.battle-screen.painted-grid .hex-cell.atk-hint .hex-shape polygon {
+  fill: rgba(255, 90, 70, 0.30);
+  stroke: transparent;
+  stroke-width: 0;
+  filter: drop-shadow(0 0 4px rgba(255, 100, 80, 0.35));
+}
+.battle-screen.painted-grid .hex-cell.danger-hint .hex-shape polygon {
+  fill: rgba(200, 40, 40, 0.18);
+  stroke: transparent;
+  stroke-width: 0;
+}
+.battle-screen.painted-grid .hex-cell.selected .hex-shape polygon {
+  fill: rgba(255, 215, 60, 0.26);
+  stroke: transparent;
+  stroke-width: 0;
+  filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.55));
+}
+@media (max-width: 480px) {
+  .battle-screen.painted-grid .grid-wrap {
+    align-items: center;
+    justify-content: center;
+  }
+  .battle-screen.painted-grid .board-art.island-art {
+    background-size: contain;
+    background-position: center center;
+  }
+}

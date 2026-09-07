@@ -6,9 +6,9 @@ import hubUrl from './assets/art/hub.jpg';
 import bgM1 from './assets/art/bg-m1.jpg';
 import bgM2 from './assets/art/bg-m2.jpg';
 import bgM3 from './assets/art/bg-m3.jpg';
-import boardM1 from './assets/art/board-m1.jpg';
 import boardM2 from './assets/art/board-m2.jpg';
 import boardM3 from './assets/art/board-m3.jpg';
+import boardUserIsland from './assets/art/board-user-island.png';
 
 import unitLin from './assets/art/unit-lin.jpg';
 import unitSu from './assets/art/unit-su.jpg';
@@ -36,9 +36,14 @@ export const ART = {
   },
   /** 連續手繪戰場圖（格盤背景，非碎塊地磚） */
   board: {
-    m1_tutorial: boardM1,
+    /** 村外草徑：玩家提供的浮島手繪六角盤（格線已繪入圖） */
+    m1_tutorial: boardUserIsland,
     m2_pass: boardM2,
     m3_harbor: boardM3,
+  },
+  /** 圖面已含六角線 → UI 僅半透明填色、不重描外框 */
+  paintedHexBoard: {
+    m1_tutorial: true,
   },
   portrait: {
     lin_qingchuan: unitLin,
@@ -71,6 +76,10 @@ export function mapBackground(mapId) {
 
 export function boardFor(mapId) {
   return ART.board[mapId] || ART.board.m1_tutorial;
+}
+
+export function usesPaintedHexBoard(mapId) {
+  return !!ART.paintedHexBoard[mapId];
 }
 
 export function portraitFor(unit) {

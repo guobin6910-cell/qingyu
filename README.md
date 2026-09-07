@@ -20,7 +20,7 @@ npm run build
 Pages 來源：docs/
 
 ## 地圖
-- 村外草徑
+- 村外草徑（玩家浮島手繪六角盤 `board-user-island.png`；圖面已含格線，UI 僅半透明互動填色）
 - 翠嶺隘口
 - 青港碼頭
 

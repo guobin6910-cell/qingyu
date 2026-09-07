@@ -14,7 +14,7 @@ import {
   planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
   computeAttackRange,
 } from './battle.js';
-import { ART, mapBackground, boardFor, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
+import { ART, mapBackground, boardFor, usesPaintedHexBoard, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
 import { hexToPixel, hexBoardSize, hexPolygonPoints } from './hex.js';
 
 let app, state, screen, battle, hubTab = 'mission', toastTimer;
@@ -356,6 +356,9 @@ function renderBattle() {
 
   const bgUrl = mapBackground(b.mapDef.id);
   const boardUrl = boardFor(b.mapDef.id);
+  const paintedHex = usesPaintedHexBoard(b.mapDef.id);
+  const paintedCls = paintedHex ? ' painted-grid' : '';
+  const boardArtCls = paintedHex ? 'board-art island-art' : 'board-art';
   const selPor = selU ? portraitFor(selU) : null;
   const selCls = selU ? CLASSES[selU.classId] : null;
   const skillList = selU?.skill
@@ -403,7 +406,7 @@ function renderBattle() {
   const modeSkill = b.mode === 'skill' || canSkill ? 'lit skill-ready-btn' : '';
 
   app.innerHTML = `
-  <div class="screen battle-screen gorgeous eoa-board hex-board">
+  <div class="screen battle-screen gorgeous eoa-board hex-board${paintedCls}">
     <div class="battle-bg" style="background-image:url('${bgUrl}')"></div>
     <div class="battle-bg-vignette"></div>
     <div class="battle-top ornate-bar">
@@ -415,7 +418,7 @@ function renderBattle() {
     <div class="battle-mid hex-mid">
       <div class="grid-wrap" style="position:relative">
         <div class="board-stage" style="width:${boardW}px;height:${boardH}px;--board:url('${boardUrl}')">
-          <div class="board-art" aria-hidden="true"></div>
+          <div class="${boardArtCls}" aria-hidden="true"></div>
           <div class="grid hex-grid continuous-grid" style="width:${boardW}px;height:${boardH}px">
             ${gridHtml}
           </div>
