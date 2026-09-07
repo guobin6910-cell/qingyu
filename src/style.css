@@ -1787,9 +1787,14 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   box-shadow: 0 0 10px #ffd700cc;
 }
 
-/* —— 玩家浮島圖：圖面已含六角線 → 互動層僅半透明填色 —— */
+/* —— 玩家浮島圖：舞台鎖圖面比例＋flat-top 校正；僅半透明填色 —— */
+.battle-screen.painted-grid .board-stage.island-stage {
+  overflow: hidden;
+  background: #5a9fd4;
+}
 .battle-screen.painted-grid .board-art.island-art {
-  background-size: contain;
+  /* 舞台已是 art 比例 → 100% 填滿，無 letterbox */
+  background-size: 100% 100%;
   background-repeat: no-repeat;
   background-position: center center;
   background-color: #5a9fd4;
@@ -1805,32 +1810,50 @@ h2 { font-size: 1.2rem; color: var(--accent); }
   stroke-width: 0;
   filter: none;
 }
+/* 封鎖格（河／林／崖）幾乎不蓋色，避免打架；仍擋點擊 */
 .battle-screen.painted-grid .hex-cell.blocked .hex-shape polygon {
-  fill: rgba(12, 18, 28, 0.38);
+  fill: transparent;
   stroke: transparent;
+}
+.battle-screen.painted-grid .hex-cell.blocked {
+  pointer-events: none;
+  cursor: default;
 }
 .battle-screen.painted-grid .hex-cell.move-hint .hex-shape polygon {
-  fill: rgba(80, 210, 255, 0.34);
+  fill: rgba(80, 210, 255, 0.32);
   stroke: transparent;
   stroke-width: 0;
-  filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.4));
+  filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.35));
 }
 .battle-screen.painted-grid .hex-cell.atk-hint .hex-shape polygon {
-  fill: rgba(255, 90, 70, 0.30);
+  fill: rgba(255, 90, 70, 0.28);
   stroke: transparent;
   stroke-width: 0;
-  filter: drop-shadow(0 0 4px rgba(255, 100, 80, 0.35));
+  filter: drop-shadow(0 0 4px rgba(255, 100, 80, 0.3));
 }
 .battle-screen.painted-grid .hex-cell.danger-hint .hex-shape polygon {
-  fill: rgba(200, 40, 40, 0.18);
+  fill: rgba(200, 40, 40, 0.16);
   stroke: transparent;
   stroke-width: 0;
 }
 .battle-screen.painted-grid .hex-cell.selected .hex-shape polygon {
-  fill: rgba(255, 215, 60, 0.26);
+  fill: rgba(255, 215, 60, 0.24);
   stroke: transparent;
   stroke-width: 0;
-  filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.55));
+  filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.5));
+}
+.battle-screen.painted-grid .hex-cell.island-cell .tile-badge {
+  top: 12%;
+  font-size: 0.5rem;
+  opacity: 0.75;
+  background: rgba(10, 20, 32, 0.4);
+}
+.battle-screen.painted-grid .hex-cell.island-cell .tok {
+  padding-bottom: 22%;
+  align-items: center;
+}
+.battle-screen.painted-grid .hex-cell.island-cell .unit-sprite {
+  transform: translateY(6%);
 }
 @media (max-width: 480px) {
   .battle-screen.painted-grid .grid-wrap {
@@ -1838,7 +1861,7 @@ h2 { font-size: 1.2rem; color: var(--accent); }
     justify-content: center;
   }
   .battle-screen.painted-grid .board-art.island-art {
-    background-size: contain;
+    background-size: 100% 100%;
     background-position: center center;
   }
 }

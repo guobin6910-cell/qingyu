@@ -15,6 +15,8 @@ export const TERRAIN = {
   shop:   { id: 'shop',   name: '商鋪', move: 1, def: 0, color: '#d4b06a', emoji: '店', special: 'shop' },
   secret: { id: 'secret', name: '遺跡', move: 1, def: 1, color: '#6a4a8a', emoji: '※', special: 'secret' },
   harbor: { id: 'harbor', name: '碼頭', move: 1, def: 0, color: '#3a6a8a', emoji: '⚓' },
+  /** 圖外／天空：不渲染、不可進入 */
+  void:   { id: 'void',   name: '虛空', move: 99, def: 0, color: 'transparent', emoji: '', block: true, void: true },
 };
 
 /** 三大職階樹 */
@@ -222,7 +224,7 @@ export const RECRUIT_CANDIDATE = {
  */
 const TMAP = {
   P: 'plain', H: 'hill', F: 'forest', W: 'wall', S: 'ford',
-  V: 'village', $: 'shop', '*': 'secret', B: 'harbor',
+  V: 'village', $: 'shop', '*': 'secret', B: 'harbor', '.': 'void',
 };
 
 export function parseGrid(rows) {
@@ -240,21 +242,24 @@ export const MAPS = [
     objective: '擊破全部敵人',
     hiddenHint: '踏上村落格可招募同伴；遺跡格藏有功勳。',
     hex: true,
+    /** 對齊浮島烘焙 flat-top 格（odd-q）；. = 天空／虛空不渲染 */
+    hexOrientation: 'flat',
     grid: parseGrid([
-      'PPPPPPP',
-      'PFVPPHP',
-      'PFFPPPP',
-      'PPPPFPP',
-      'PHPPPFP',
-      'PPP*PPP',
-      'PPPPPPP',
-      'PPPPPPP',
+      // 12×8 flat-top — 對齊浮島草甸；. = 天空不渲染
+      '....WW.PPPP.',
+      '.FPPPWWPPPPF',
+      '.FPPVSHPPPP.',
+      '.WPPPWPWPPPH',
+      '..PPPPPPP*H.',
+      '..WPPPPPP...',
+      '....FPPP....',
+      '............',
     ]),
-    playerStarts: [[1, 6], [2, 6], [3, 6]],
+    playerStarts: [[3, 4], [4, 4], [5, 4]],
     enemies: [
-      { name: '流寇', classId: 'dao_wei', pos: [5, 2], ai: 'aggro', hpMul: 0.7 },
-      { name: '流寇弓', classId: 'gang_lie', pos: [5, 3], ai: 'hold', hpMul: 0.65 },
-      { name: '流寇', classId: 'dao_wei', pos: [4, 1], ai: 'hold', hpMul: 0.7 },
+      { name: '流寇', classId: 'dao_wei', pos: [8, 1], ai: 'aggro', hpMul: 0.7 },
+      { name: '流寇弓', classId: 'gang_lie', pos: [9, 3], ai: 'hold', hpMul: 0.65 },
+      { name: '流寇', classId: 'dao_wei', pos: [7, 2], ai: 'hold', hpMul: 0.7 },
     ],
     winGold: 80,
     winMerit: 1,

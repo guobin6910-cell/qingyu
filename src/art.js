@@ -45,6 +45,24 @@ export const ART = {
   paintedHexBoard: {
     m1_tutorial: true,
   },
+  /**
+   * 浮島手繪盤校正（以 PNG 像素為準）
+   * flat-top odd-q + 垂直壓縮，對齊草甸上烘焙格線；舞台比例鎖定圖面以免 letterbox。
+   */
+  islandLayout: {
+    m1_tutorial: {
+      artW: 1024,
+      artH: 559,
+      orientation: 'flat',
+      /** 格 (0,0) 中心在圖面座標 */
+      originX: 175,
+      originY: 188,
+      hexSize: 38,
+      squashY: 0.60,
+      /** 舞台最大寬（手機欄位旁） */
+      maxStageW: 440,
+    },
+  },
   portrait: {
     lin_qingchuan: unitLin,
     su_wanqing: unitSu,
@@ -80,6 +98,10 @@ export function boardFor(mapId) {
 
 export function usesPaintedHexBoard(mapId) {
   return !!ART.paintedHexBoard[mapId];
+}
+
+export function islandLayoutFor(mapId) {
+  return ART.islandLayout[mapId] || null;
 }
 
 export function portraitFor(unit) {

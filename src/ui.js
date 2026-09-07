@@ -14,7 +14,7 @@ import {
   planTryAttack, commitAttackPlan, enemyPrepare, finalizeEnemyPhase,
   computeAttackRange,
 } from './battle.js';
-import { ART, mapBackground, boardFor, usesPaintedHexBoard, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
+import { ART, mapBackground, boardFor, usesPaintedHexBoard, islandLayoutFor, portraitFor, unitTokenHTML, terrainPattern } from './art.js';
 import { hexToPixel, hexBoardSize, hexPolygonPoints } from './hex.js';
 
 let app, state, screen, battle, hubTab = 'mission', toastTimer;
@@ -293,9 +293,37 @@ function renderBattle() {
   screen = 'battle';
   if (!battle) return;
   const b = battle;
-  const hexSize = b.w >= 8 ? 26 : 28;
-  const { width: boardW, height: boardH, cellW, cellH } = hexBoardSize(b.w, b.h, hexSize);
-  const poly = hexPolygonPoints(hexSize - 0.8);
+  const island = islandLayoutFor(b.mapDef.id);
+  const orient = b.hexOrientation || b.mapDef.hexOrientation || 'pointy';
+  const squashY = island ? island.squashY : 1;
+
+  let hexSize;
+  let boardW;
+  let boardH;
+  let cellW;
+  let cellH;
+  let originX = 0;
+  let originY = 0;
+  let poly;
+
+  if (island) {
+    // 舞台鎖定浮島圖比例 → 無 letterbox；互動格以圖面像素校正
+    const maxW = Math.min(island.maxStageW || 440, (typeof window !== 'undefined' ? window.innerWidth - 86 : 400));
+    boardW = Math.max(280, Math.round(maxW));
+    boardH = Math.round(boardW * (island.artH / island.artW));
+    const scale = boardW / island.artW;
+    hexSize = island.hexSize * scale;
+    originX = island.originX * scale;
+    originY = island.originY * scale;
+    const metrics = hexToPixel(0, 0, hexSize, orient, squashY);
+    cellW = metrics.w;
+    cellH = metrics.h;
+    poly = hexPolygonPoints(hexSize * 0.98, orient, squashY);
+  } else {
+    hexSize = b.w >= 8 ? 26 : 28;
+    ({ width: boardW, height: boardH, cellW, cellH } = hexBoardSize(b.w, b.h, hexSize, orient, squashY));
+    poly = hexPolygonPoints(hexSize - 0.8, orient, squashY);
+  }
 
   // 敵方威脅格
   const dangerSet = new Set();
@@ -311,15 +339,19 @@ function renderBattle() {
   for (let y = 0; y < b.h; y++) {
     for (let x = 0; x < b.w; x++) {
       const ter = terrainAt(b, x, y);
+      if (ter && ter.void) continue; // 天空／虛空：不渲染
       const u = unitAt(b, x, y);
       const isMove = b.moveHint.some((c) => c.x === x && c.y === y);
       const isAtk = b.attackHint.some((c) => c.x === x && c.y === y);
       const sel = u && u.id === b.selected;
       const isDanger = dangerSet.has(`${x},${y}`) && !isMove && !isAtk;
-      const badge = (!u && ter && !ter.block && terrainPattern(ter.id)) ? terrainPattern(ter.id) : '';
-      const { px, py } = hexToPixel(x, y, hexSize);
-      const left = px - cellW / 2;
-      const top = py - cellH / 2;
+      const showBadge = island
+        ? (!u && ter && (ter.special === 'village' || ter.special === 'secret' || ter.special === 'shop'))
+        : (!u && ter && !ter.block && terrainPattern(ter.id));
+      const badge = showBadge ? terrainPattern(ter.id) : '';
+      const { px, py } = hexToPixel(x, y, hexSize, orient, squashY);
+      const left = originX + px - cellW / 2;
+      const top = originY + py - cellH / 2;
       const cls = [
         'cell hex-cell',
         `tile-${ter.id}`,
@@ -328,12 +360,15 @@ function renderBattle() {
         isDanger ? 'danger-hint' : '',
         sel ? 'selected' : '',
         ter.block ? 'blocked' : '',
+        island ? 'island-cell' : '',
       ].join(' ');
-      const tokSize = Math.max(40, Math.round(hexSize * 1.55));
+      const tokSize = Math.max(34, Math.round(hexSize * (island ? 1.35 : 1.55)));
+      const vbX = (-cellW / 2).toFixed(2);
+      const vbY = (-cellH / 2).toFixed(2);
       gridHtml += `<div class="${cls}" data-x="${x}" data-y="${y}"
-        style="left:${left}px;top:${top}px;width:${cellW}px;height:${cellH}px"
+        style="left:${left.toFixed(2)}px;top:${top.toFixed(2)}px;width:${cellW.toFixed(2)}px;height:${cellH.toFixed(2)}px"
         title="${ter.name}">
-        <svg class="hex-shape" viewBox="${(-cellW/2).toFixed(2)} ${(-cellH/2).toFixed(2)} ${cellW.toFixed(2)} ${cellH.toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">
+        <svg class="hex-shape" viewBox="${vbX} ${vbY} ${cellW.toFixed(2)} ${cellH.toFixed(2)}" preserveAspectRatio="none" aria-hidden="true">
           <polygon points="${poly}" />
         </svg>
         ${badge ? `<span class="tile-badge">${badge}</span>` : ''}
@@ -359,6 +394,7 @@ function renderBattle() {
   const paintedHex = usesPaintedHexBoard(b.mapDef.id);
   const paintedCls = paintedHex ? ' painted-grid' : '';
   const boardArtCls = paintedHex ? 'board-art island-art' : 'board-art';
+  const stageExtra = island ? ' island-stage' : '';
   const selPor = selU ? portraitFor(selU) : null;
   const selCls = selU ? CLASSES[selU.classId] : null;
   const skillList = selU?.skill
@@ -417,7 +453,7 @@ function renderBattle() {
     </div>
     <div class="battle-mid hex-mid">
       <div class="grid-wrap" style="position:relative">
-        <div class="board-stage" style="width:${boardW}px;height:${boardH}px;--board:url('${boardUrl}')">
+        <div class="board-stage${stageExtra}" style="width:${boardW}px;height:${boardH}px;--board:url('${boardUrl}')">
           <div class="${boardArtCls}" aria-hidden="true"></div>
           <div class="grid hex-grid continuous-grid" style="width:${boardW}px;height:${boardH}px">
             ${gridHtml}

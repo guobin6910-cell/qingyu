@@ -1,4 +1,4 @@
-/** 六角戰術戰鬥引擎（odd-r pointy-top hex） */
+/** 六角戰術戰鬥引擎（pointy odd-r / flat odd-q） */
 import { TERRAIN, CLASSES, TREES } from './data.js';
 import { hexNeighbors, hexDistance } from './hex.js';
 
@@ -75,6 +75,7 @@ export function createBattle(state, mapDef) {
     grid: mapDef.grid,
     w,
     h,
+    hexOrientation: mapDef.hexOrientation || 'pointy',
     units,
     turn: 1,
     phase: 'player', // player | enemy
@@ -116,7 +117,7 @@ export function computeMoveRange(battle, unit) {
   const q = [[unit.x, unit.y]];
   while (q.length) {
     const [x, y] = q.shift();
-    for (const [nx, ny] of hexNeighbors(x, y)) {
+    for (const [nx, ny] of hexNeighbors(x, y, battle.hexOrientation)) {
       if (!inBounds(battle, nx, ny)) continue;
       const t = terrainAt(battle, nx, ny);
       if (!t || t.block || t.move >= 99) continue;
@@ -145,17 +146,18 @@ export function computeMoveRange(battle, unit) {
   return cells;
 }
 
-export function manhattan(x1, y1, x2, y2) {
-  return hexDistance(x1, y1, x2, y2);
+export function manhattan(x1, y1, x2, y2, orientation = 'pointy') {
+  return hexDistance(x1, y1, x2, y2, orientation);
 }
 
 export { hexDistance };
 
 export function computeAttackRange(battle, unit, fromX = unit.x, fromY = unit.y) {
   const cells = [];
+  const orient = battle.hexOrientation || 'pointy';
   for (let y = 0; y < battle.h; y++) {
     for (let x = 0; x < battle.w; x++) {
-      const d = hexDistance(fromX, fromY, x, y);
+      const d = hexDistance(fromX, fromY, x, y, orient);
       if (d >= 1 && d <= unit.range) cells.push({ x, y });
     }
   }
@@ -306,7 +308,7 @@ export function buildCombatPlan(battle, attacker, target, opts = {}) {
     if (sk.aoe) {
       const extras = battle.units.filter(
         (u) => u.alive && u.side === target.side && u.id !== target.id
-          && manhattan(u.x, u.y, target.x, target.y) === 1
+          && manhattan(u.x, u.y, target.x, target.y, battle.hexOrientation) === 1
       ).slice(0, 2);
       for (const ex of extras) {
         aoe.push({
@@ -324,7 +326,7 @@ export function buildCombatPlan(battle, attacker, target, opts = {}) {
 
   let counterDmg = 0;
   const canCounter = target.range === 1 && attacker.range === 1
-    && manhattan(attacker.x, attacker.y, target.x, target.y) <= target.range;
+    && manhattan(attacker.x, attacker.y, target.x, target.y, battle.hexOrientation) <= target.range;
   // 反擊僅在主目標 theoretically 存活時（依計劃傷害判斷）
   if (canCounter && target.hp - dmg > 0) {
     counterDmg = calcDamage(battle, target, attacker);
@@ -447,7 +449,7 @@ export function trySkill(battle) {
   }
   if (sk.type === 'heal') {
     const allies = battle.units.filter(
-      (u) => u.alive && u.side === unit.side && manhattan(u.x, u.y, unit.x, unit.y) <= 2
+      (u) => u.alive && u.side === unit.side && manhattan(u.x, u.y, unit.x, unit.y, battle.hexOrientation) <= 2
     );
     const heals = allies.map((a) => ({
       id: a.id,
@@ -556,7 +558,7 @@ export function enemyPrepare(battle, e) {
     }
     e.x = cell.x;
     e.y = cell.y;
-    const targets = players.filter((p) => manhattan(e.x, e.y, p.x, p.y) <= e.range);
+    const targets = players.filter((p) => manhattan(e.x, e.y, p.x, p.y, battle.hexOrientation) <= e.range);
     for (const t of targets) {
       const dmg = calcDamage(battle, e, t);
       const score = dmg + (t.hero ? 5 : 0) + (t.hp <= dmg ? 50 : 0) - cell.cost;
@@ -578,9 +580,9 @@ export function enemyPrepare(battle, e) {
 
   if (e.ai === 'aggro') {
     let nearest = players[0];
-    let nd = manhattan(ox, oy, nearest.x, nearest.y);
+    let nd = manhattan(ox, oy, nearest.x, nearest.y, battle.hexOrientation);
     for (const p of players) {
-      const d = manhattan(ox, oy, p.x, p.y);
+      const d = manhattan(ox, oy, p.x, p.y, battle.hexOrientation);
       if (d < nd) {
         nd = d;
         nearest = p;
@@ -591,7 +593,7 @@ export function enemyPrepare(battle, e) {
     e.y = -99;
     for (const cell of moveCells) {
       if (unitAt(battle, cell.x, cell.y)) continue;
-      const d = manhattan(cell.x, cell.y, nearest.x, nearest.y);
+      const d = manhattan(cell.x, cell.y, nearest.x, nearest.y, battle.hexOrientation);
       if (d < bestCell.d) bestCell = { x: cell.x, y: cell.y, d };
     }
     e.x = bestCell.x;
@@ -702,7 +704,7 @@ function playerGreedyAct(battle, p) {
     if (p.heal) {
       for (const a of allies) {
         if (a.id === p.id) continue;
-        if (manhattan(p.x, p.y, a.x, a.y) <= p.range && a.hp < a.maxHp) {
+        if (manhattan(p.x, p.y, a.x, a.y, battle.hexOrientation) <= p.range && a.hp < a.maxHp) {
           const score = 40 + (a.maxHp - a.hp) + (a.hero ? 10 : 0) + bonus;
           if (!best || score > best.score) best = { x: cell.x, y: cell.y, kind: 'heal', target: a, score };
         }
@@ -710,7 +712,7 @@ function playerGreedyAct(battle, p) {
     }
     if (!p.heal || (p.mag && p.atk >= 5)) {
       for (const e of enemies) {
-        if (manhattan(p.x, p.y, e.x, e.y) <= p.range) {
+        if (manhattan(p.x, p.y, e.x, e.y, battle.hexOrientation) <= p.range) {
           const dmg = calcDamage(battle, p, e);
           const score = 50 + dmg + (e.boss ? 25 : 0) + (e.hp <= dmg ? 60 : 0) + bonus;
           if (!best || score > best.score) best = { x: cell.x, y: cell.y, kind: 'atk', target: e, score, dmg };
@@ -720,9 +722,9 @@ function playerGreedyAct(battle, p) {
     // 靠近最近敵人
     {
       let nearest = enemies[0];
-      let nd = nearest ? manhattan(cell.x, cell.y, nearest.x, nearest.y) : 99;
+      let nd = nearest ? manhattan(cell.x, cell.y, nearest.x, nearest.y, battle.hexOrientation) : 99;
       for (const e of enemies) {
-        const d = manhattan(cell.x, cell.y, e.x, e.y);
+        const d = manhattan(cell.x, cell.y, e.x, e.y, battle.hexOrientation);
         if (d < nd) { nd = d; nearest = e; }
       }
       if (nearest) {
@@ -764,7 +766,7 @@ function playerGreedyAct(battle, p) {
   } else if (best.kind === 'heal' && best.target) {
     if (p.skill && !p.skill.used && p.skill.type === 'heal') {
       const allies = battle.units.filter(
-        (u) => u.alive && u.side === 'player' && manhattan(u.x, u.y, p.x, p.y) <= 2
+        (u) => u.alive && u.side === 'player' && manhattan(u.x, u.y, p.x, p.y, battle.hexOrientation) <= 2
       );
       for (const a of allies) {
         const h = Math.round(calcHeal(p, a) * (p.skill.power || 1.2));
